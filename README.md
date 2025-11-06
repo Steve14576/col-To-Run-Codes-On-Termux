@@ -47,14 +47,14 @@
     - Acode: An handy but powerful code editor on Android. [Acode](https://github.com/deadlyjack/acode)**
     - Termux: A very powerful app functions as a `Linux` terminal simulator that can do many things even without root. [Termux](https://github.com/termux/termux-app)
   - Place and execute the script within the `~` directory of Termux, or else it's execution is enernally blokced by Android.
-    - It is normal for file managers not to find `~`. Hereby recommend:
+    - It is normal for file managers not to find `~`, but `Termux` can access and edit `~`. Therefore hereby recommend:
       1. Download the script and open it with a file manager.
-      2. Clone the directory route, goto Termux and use command `mv` to move it to some directory within `~`.
-      3. Then `cd` to the script's directory, make sure to execute it there.
+      2. Clone the directory route, goto `Termux`, start a session, and use command `mv` to move it to some directory you want, but must be within `~`.
+      3. Then `cd` to the that directory, make sure to execute it there.
   - grant a `chmod +x` or even `chmod +777` to it.
   - Directly execute them by names, as they are essentialy scripts.
     - Such as `./col13`, `./colL4`, `./colExRs3`, `./colWhateverRenamed`
     - Rename them if its comfy for you, references were not based on name strings.
     - Recommend using `rlwrap ./col`, this helps with reactivating arrows within the script environment. Termux does not come with it, so `pkg install rlwrap` if you feel you need to.
   - Help infos are within, or you can like `./col13 --help` to check help infos without officially launching it.
-  - Press ctrl+C to exit the interface.
+  - Press ctrl+C to exit the interface and the script.

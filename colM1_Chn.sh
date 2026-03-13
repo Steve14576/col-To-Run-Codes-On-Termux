@@ -459,6 +459,25 @@ vls() {
 }
 
 # ==============================================
+# 辅助函数：行内刷新显示编译状态
+# 用法：run_compiler <编译器命令及参数...>
+# ==============================================
+run_compiler() {
+    local tmp_err="/tmp/_col_err_$$"
+    printf "🔨 编译中..."
+    "$@" 2>"$tmp_err"
+    local rc=$?
+    if [[ $rc -eq 0 ]]; then
+        printf "\r✅ 编译成功\n"
+    else
+        printf "\r❌ 编译失败\n"
+        cat "$tmp_err"
+    fi
+    rm -f "$tmp_err"
+    return $rc
+}
+
+# ==============================================
 # 编译执行核心逻辑
 # ==============================================
 execute_file() {
@@ -530,51 +549,36 @@ execute_file() {
         # C 系列
         gcc|clang)
             local output_file="${output_dir}/$(basename "$filename" .c)"
-            "$compiler" -o "$output_file" "$full_path"
+            run_compiler "$compiler" -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功"
-                if [[ $execute == true ]]; then
-                    "$output_file"
-                    [[ $delete_after == true ]] && rm -f "$output_file"
-                fi
+                [[ $execute == true ]] && "$output_file"
+                [[ $delete_after == true ]] && rm -f "$output_file"
             else
-                echo "❌ 编译失败"
-                cd "$original_dir"
-                return 1
+                cd "$original_dir"; return 1
             fi
             ;;
         
         # C++ 系列
         g++|clang++)
             local output_file="${output_dir}/$(basename "$filename" .cpp)"
-            "$compiler" -o "$output_file" "$full_path"
+            run_compiler "$compiler" -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功"
-                if [[ $execute == true ]]; then
-                    "$output_file"
-                    [[ $delete_after == true ]] && rm -f "$output_file"
-                fi
+                [[ $execute == true ]] && "$output_file"
+                [[ $delete_after == true ]] && rm -f "$output_file"
             else
-                echo "❌ 编译失败"
-                cd "$original_dir"
-                return 1
+                cd "$original_dir"; return 1
             fi
             ;;
         
         # Java
         javac)
             local classname=$(basename "$filename" .java)
-            javac -d "$output_dir" "$full_path"
+            run_compiler javac -d "$output_dir" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功"
-                if [[ $execute == true ]]; then
-                    (cd "$output_dir" && java "$classname")
-                    [[ $delete_after == true ]] && rm -f "${output_dir}/${classname}.class"
-                fi
+                [[ $execute == true ]] && (cd "$output_dir" && java "$classname")
+                [[ $delete_after == true ]] && rm -f "${output_dir}/${classname}.class"
             else
-                echo "❌ 编译失败"
-                cd "$original_dir"
-                return 1
+                cd "$original_dir"; return 1
             fi
             ;;
         
@@ -602,34 +606,24 @@ execute_file() {
                 *.f03) output_file="${output_dir}/$(basename "$filename" .f03)" ;;
                 *.f08) output_file="${output_dir}/$(basename "$filename" .f08)" ;;
             esac
-            "$compiler" -o "$output_file" "$full_path"
+            run_compiler "$compiler" -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功"
-                if [[ $execute == true ]]; then
-                    "$output_file"
-                    [[ $delete_after == true ]] && rm -f "$output_file"
-                fi
+                [[ $execute == true ]] && "$output_file"
+                [[ $delete_after == true ]] && rm -f "$output_file"
             else
-                echo "❌ 编译失败"
-                cd "$original_dir"
-                return 1
+                cd "$original_dir"; return 1
             fi
             ;;
         
         # Rust
         rustc)
             local output_file="${output_dir}/$(basename "$filename" .rs)"
-            "$compiler" --out-dir "$output_dir" "$full_path"
+            run_compiler "$compiler" --out-dir "$output_dir" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功"
-                if [[ $execute == true ]]; then
-                    "$output_file"
-                    [[ $delete_after == true ]] && rm -f "$output_file"
-                fi
+                [[ $execute == true ]] && "$output_file"
+                [[ $delete_after == true ]] && rm -f "$output_file"
             else
-                echo "❌ 编译失败"
-                cd "$original_dir"
-                return 1
+                cd "$original_dir"; return 1
             fi
             ;;
         
@@ -637,17 +631,12 @@ execute_file() {
         kotlinc)
             local classname=$(basename "$filename" .kt)
             local jar_file="${output_dir}/${classname}.jar"
-            "$compiler" -d "$jar_file" "$full_path"
+            run_compiler "$compiler" -d "$jar_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功"
-                if [[ $execute == true ]]; then
-                    java -jar "$jar_file"
-                    [[ $delete_after == true ]] && rm -f "$jar_file"
-                fi
+                [[ $execute == true ]] && java -jar "$jar_file"
+                [[ $delete_after == true ]] && rm -f "$jar_file"
             else
-                echo "❌ 编译失败"
-                cd "$original_dir"
-                return 1
+                cd "$original_dir"; return 1
             fi
             ;;
         
@@ -659,17 +648,12 @@ execute_file() {
         # Go
         go)
             local output_file="${output_dir}/$(basename "$filename" .go)"
-            "$compiler" build -o "$output_file" "$full_path"
+            run_compiler "$compiler" build -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功"
-                if [[ $execute == true ]]; then
-                    "$output_file"
-                    [[ $delete_after == true ]] && rm -f "$output_file"
-                fi
+                [[ $execute == true ]] && "$output_file"
+                [[ $delete_after == true ]] && rm -f "$output_file"
             else
-                echo "❌ 编译失败"
-                cd "$original_dir"
-                return 1
+                cd "$original_dir"; return 1
             fi
             ;;
         

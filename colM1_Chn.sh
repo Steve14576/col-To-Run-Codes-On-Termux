@@ -3,16 +3,16 @@
 # ==============================================
 # 脚本版本信息
 # ==============================================
-VERSION="Medium.1.0.Chn"
+VERSION="M1.0.Chn"
 
 # ==============================================
 # 显示帮助信息
 # ==============================================
 show_help() {
-    echo "┌────────────────────────────────────────┐"
-    echo "│        colM1_Chn $VERSION            │"
-    echo "│     多语言编译运行工具                │"
-    echo "└────────────────────────────────────────┘"
+    echo "┌──────────────────────────────────┐"
+    echo "│      colM1_Chn $VERSION        │"
+    echo "│      多语言编译运行工具          │"
+    echo "└──────────────────────────────────┘"
     echo ""
     echo "📋 支持语言:"
     echo "   Java, C, C++, Python, Shell, JavaScript,"
@@ -72,10 +72,10 @@ show_help() {
 # 显示版本信息
 # ==============================================
 show_version() {
-    echo "┌─────────────────────────────┐"
-    echo "│      colM1_Chn 多语言编译工具  │"
-    echo "│           v$VERSION           │"
-    echo "└─────────────────────────────┘"
+    echo "┌──────────────────────────────────┐"
+    echo "│    colM1_Chn 多语言编译工具      │"
+    echo "│         v$VERSION              │"
+    echo "└──────────────────────────────────┘"
 }
 
 # ==============================================
@@ -121,9 +121,9 @@ format_path_for_display() {
 # ==============================================
 show_exit_seed() {
     echo ""
-    echo "┌─────────────────────────────┐"
-    echo "│        配置种子             │"
-    echo "│ 下次可使用此命令快速初始化：│"
+    echo "┌──────────────────────────────────┐"
+    echo "│           配置种子               │"
+    echo "│  下次可使用此命令快速初始化：    │"
     
     # 收集当前配置的操作码
     local current_ops=()
@@ -140,7 +140,7 @@ show_exit_seed() {
     seed_command+=" op-$(IFS=,; echo "${current_ops[*]}")"
     
     echo "  $seed_command"
-    echo "└─────────────────────────────┘"
+    echo "└──────────────────────────────────┘"
 }
 
 # ==============================================
@@ -167,13 +167,10 @@ load_seed_from_args() {
             exit 0
         elif [[ $arg == f-* ]]; then
             source_dir="${arg#f-}"
-            echo "📁 源文件路径: $source_dir (支持递归查找)"
         elif [[ $arg == t-* ]]; then
             output_dir="${arg#t-}"
-            echo "📂 编译产物路径: $output_dir"
         elif [[ $arg == op-* ]]; then
             op_codes="${arg#op-}"
-            echo "⚙️  编译器映射: $op_codes"
         else
             echo "⚠️  未知参数: $arg (已忽略)"
         fi
@@ -205,8 +202,6 @@ source_dir=""                     # 源文件路径
 output_dir=""                     # 编译产物路径
 execute=true                      # 编译后是否执行
 delete_after=true                 # 运行后是否删除产物
-declare -A extension_commands     # Extension command dictionary (保留但不使用)
-declare -A extension_files        # Extension name to filename mapping (保留但不使用)
 
 # ==============================================
 # 工具函数：解析语言配置
@@ -336,10 +331,8 @@ apply_compiler_language_pairs() {
         # Check for path configuration parameters
         if [[ $op == f-* ]]; then
             source_dir="${op#f-}"
-            echo "📁 源文件路径已设置: $source_dir"
         elif [[ $op == t-* ]]; then
             output_dir="${op#t-}"
-            echo "📂 编译产物路径已设置: $output_dir"
         # Handle compiler-language mappings
         elif [[ $op == *-* ]]; then
             # 解析编译器-语言对
@@ -361,24 +354,11 @@ apply_compiler_language_pairs() {
             
             # 应用配置
             lang_default_compiler[$lang]=$compiler
-            echo "✅ ${lang} 语言编译器已设置为: $compiler"
             
             # 检查是否需要提示安装
             if ! is_installed "$compiler"; then
                 echo "⚠️  注意: $compiler 未安装"
-                case "$compiler" in
-                    python3|pypy|pypy3) echo "   💡 建议安装: pkg install python" ;;
-                    gcc|g++|clang|clang++) echo "   💡 建议安装: pkg install clang" ;;
-                    javac) echo "   💡 建议安装: pkg install openjdk-17" ;;
-                    node) echo "   💡 建议安装: pkg install nodejs" ;;
-                    php) echo "   💡 建议安装: pkg install php" ;;
-                    bash|sh) echo "   💡 建议安装: pkg install bash" ;;
-                    gfortran) echo "   💡 建议安装: pkg install gcc-gfortran" ;;
-                    rustc) echo "   💡 建议安装: pkg install rust" ;;
-                    kotlinc) echo "   💡 建议安装: pkg install kotlin" ;;
-                    octave) echo "   💡 建议安装: pkg install octave" ;;
-                    go) echo "   💡 建议安装: pkg install golang" ;;
-                esac
+                echo "   💡 建议安装: $(get_install_hint "$compiler")"
             fi
         else
             echo "⚠️  未知配置 '$op' (已忽略)"
@@ -429,17 +409,8 @@ initialize() {
     
     # 应用编译器-语言映射
     if [[ -n "$op_codes" ]]; then
-        echo -e "\n🔧 应用编译器-语言映射配置..."
         apply_compiler_language_pairs "$op_codes"
     fi
-    
-    echo -e "\n✅ 初始化完成！"
-    
-    # 显示脚本位置和源目录的完整路径
-    local script_full_path=$(realpath "$0" 2>/dev/null || echo "$0")
-    local source_full_path=$(realpath "$source_dir" 2>/dev/null || echo "$source_dir")
-    echo "📄 脚本位置: $script_full_path"
-    echo "📁 源文件目录: $source_full_path"
 }
 
 # ==============================================
@@ -447,9 +418,9 @@ initialize() {
 # ==============================================
 vls() {
     echo ""
-    echo "┌─────────────────────────────┐"
-    echo "│     当前目录源文件列表      │"
-    echo "└─────────────────────────────┘"
+    echo "┌──────────────────────────────────┐"
+    echo "│      当前目录源文件列表          │"
+    echo "└──────────────────────────────────┘"
     
     # 存储找到的文件路径
     local found_files=()
@@ -467,7 +438,7 @@ vls() {
     # 如果没有找到文件
     if [[ ${#found_files[@]} -eq 0 ]]; then
         echo "❌ 当前目录及子目录中未找到支持的源文件"
-        echo "└─────────────────────────────┘"
+        echo "└──────────────────────────────────┘"
         return 0
     fi
     
@@ -481,7 +452,7 @@ vls() {
     done
     echo ""
     echo "💡 输入文件编号可直接运行对应文件"
-    echo "└─────────────────────────────┘"
+    echo "└──────────────────────────────────┘"
     
     # 将文件列表存储在全局数组中供后续使用
     vls_files=("${found_files[@]}")
@@ -536,28 +507,15 @@ execute_file() {
     # 4. 检查编译器是否安装
     if ! is_installed "$compiler"; then
         echo "❌ 错误: 编译器 '$compiler' 未安装"
-        case "$compiler" in
-            python3|pypy|pypy3) echo "   💡 建议安装: pkg install python" ;;
-            gcc|g++|clang|clang++) echo "   💡 建议安装: pkg install clang" ;;
-            javac) echo "   💡 建议安装: pkg install openjdk-17" ;;
-            node) echo "   💡 建议安装: pkg install nodejs" ;;
-            php) echo "   💡 建议安装: pkg install php" ;;
-            bash|sh) echo "   💡 建议安装: pkg install bash" ;;
-            gfortran) echo "   💡 建议安装: pkg install gcc-gfortran" ;;
-            rustc) echo "   💡 建议安装: pkg install rust" ;;
-            kotlinc) echo "   💡 建议安装: pkg install kotlin" ;;
-            octave) echo "   💡 建议安装: pkg install octave" ;;
-            go) echo "   💡 建议安装: pkg install golang" ;;
-        esac
+        echo "   💡 建议安装: $(get_install_hint "$compiler")"
         return 1
     fi
     
     # 5. 执行编译运行
     echo ""
-    echo "┌─────────────────────────────┐"
-    echo "│        执行 $filename       │"
-    echo "│ 语言: $lang | 编译器: $compiler │"
-    echo "└─────────────────────────────┘"
+    echo "┌──────────────────────────────────┐"
+    echo "│  ▶ $filename  [$lang · $compiler]"
+    echo "└──────────────────────────────────┘"
     
     # 保存当前目录
     local original_dir=$(pwd)
@@ -566,28 +524,22 @@ execute_file() {
     case "$compiler" in
         # Python 系列
         python3|pypy|pypy3)
-            echo "🚀 运行 Python 脚本..."
             "$compiler" "$full_path"
             ;;
         
         # C 系列
         gcc|clang)
             local output_file="${output_dir}/$(basename "$filename" .c)"
-            echo "🔨 编译 C 文件..."
             "$compiler" -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功: $output_file"
+                echo "✅ 编译成功"
                 if [[ $execute == true ]]; then
-                    echo "🏃 运行程序..."
                     "$output_file"
-                    if [[ $delete_after == true ]]; then
-                        rm -f "$output_file"
-                        echo "🗑️  已删除编译产物: $output_file"
-                    fi
+                    [[ $delete_after == true ]] && rm -f "$output_file"
                 fi
             else
                 echo "❌ 编译失败"
-                cd "$original_dir"  # 返回原目录
+                cd "$original_dir"
                 return 1
             fi
             ;;
@@ -595,21 +547,16 @@ execute_file() {
         # C++ 系列
         g++|clang++)
             local output_file="${output_dir}/$(basename "$filename" .cpp)"
-            echo "🔨 编译 C++ 文件..."
             "$compiler" -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功: $output_file"
+                echo "✅ 编译成功"
                 if [[ $execute == true ]]; then
-                    echo "🏃 运行程序..."
                     "$output_file"
-                    if [[ $delete_after == true ]]; then
-                        rm -f "$output_file"
-                        echo "🗑️  已删除编译产物: $output_file"
-                    fi
+                    [[ $delete_after == true ]] && rm -f "$output_file"
                 fi
             else
                 echo "❌ 编译失败"
-                cd "$original_dir"  # 返回原目录
+                cd "$original_dir"
                 return 1
             fi
             ;;
@@ -617,68 +564,54 @@ execute_file() {
         # Java
         javac)
             local classname=$(basename "$filename" .java)
-            echo "🔨 编译 Java 文件..."
             javac -d "$output_dir" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功: ${output_dir}/${classname}.class"
+                echo "✅ 编译成功"
                 if [[ $execute == true ]]; then
-                    echo "🏃 运行程序..."
                     (cd "$output_dir" && java "$classname")
-                    if [[ $delete_after == true ]]; then
-                        rm -f "${output_dir}/${classname}.class"
-                        echo "🗑️  已删除编译产物: ${classname}.class"
-                    fi
+                    [[ $delete_after == true ]] && rm -f "${output_dir}/${classname}.class"
                 fi
             else
                 echo "❌ 编译失败"
-                cd "$original_dir"  # 返回原目录
+                cd "$original_dir"
                 return 1
             fi
             ;;
         
         # Shell
         bash|sh)
-            echo "🚀 运行 Shell 脚本..."
             "$compiler" "$full_path"
             ;;
         
         # JavaScript
         node)
-            echo "🚀 运行 JavaScript 文件..."
             "$compiler" "$full_path"
             ;;
         
         # PHP
         php)
-            echo "🚀 运行 PHP 脚本..."
             "$compiler" "$full_path"
             ;;
         
         # Fortran
         gfortran)
             local output_file="${output_dir}/$(basename "$filename" .f)"
-            # Handle different Fortran extensions
             case "$filename" in
                 *.f90) output_file="${output_dir}/$(basename "$filename" .f90)" ;;
                 *.f95) output_file="${output_dir}/$(basename "$filename" .f95)" ;;
                 *.f03) output_file="${output_dir}/$(basename "$filename" .f03)" ;;
                 *.f08) output_file="${output_dir}/$(basename "$filename" .f08)" ;;
             esac
-            echo "🔨 编译 Fortran 文件..."
             "$compiler" -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功: $output_file"
+                echo "✅ 编译成功"
                 if [[ $execute == true ]]; then
-                    echo "🏃 运行程序..."
                     "$output_file"
-                    if [[ $delete_after == true ]]; then
-                        rm -f "$output_file"
-                        echo "🗑️  已删除编译产物: $output_file"
-                    fi
+                    [[ $delete_after == true ]] && rm -f "$output_file"
                 fi
             else
                 echo "❌ 编译失败"
-                cd "$original_dir"  # 返回原目录
+                cd "$original_dir"
                 return 1
             fi
             ;;
@@ -686,21 +619,16 @@ execute_file() {
         # Rust
         rustc)
             local output_file="${output_dir}/$(basename "$filename" .rs)"
-            echo "🔨 编译 Rust 文件..."
             "$compiler" --out-dir "$output_dir" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功: $output_file"
+                echo "✅ 编译成功"
                 if [[ $execute == true ]]; then
-                    echo "🏃 运行程序..."
                     "$output_file"
-                    if [[ $delete_after == true ]]; then
-                        rm -f "$output_file"
-                        echo "🗑️  已删除编译产物: $output_file"
-                    fi
+                    [[ $delete_after == true ]] && rm -f "$output_file"
                 fi
             else
                 echo "❌ 编译失败"
-                cd "$original_dir"  # 返回原目录
+                cd "$original_dir"
                 return 1
             fi
             ;;
@@ -709,49 +637,38 @@ execute_file() {
         kotlinc)
             local classname=$(basename "$filename" .kt)
             local jar_file="${output_dir}/${classname}.jar"
-            echo "🔨 编译 Kotlin 文件..."
             "$compiler" -d "$jar_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功: $jar_file"
+                echo "✅ 编译成功"
                 if [[ $execute == true ]]; then
-                    echo "🏃 运行程序..."
                     java -jar "$jar_file"
-                    if [[ $delete_after == true ]]; then
-                        rm -f "$jar_file"
-                        echo "🗑️  已删除编译产物: $jar_file"
-                    fi
+                    [[ $delete_after == true ]] && rm -f "$jar_file"
                 fi
             else
                 echo "❌ 编译失败"
-                cd "$original_dir"  # 返回原目录
+                cd "$original_dir"
                 return 1
             fi
             ;;
         
         # Octave
         octave)
-            echo "🚀 运行 Octave 脚本..."
             octave --no-gui --eval "run('$full_path')"
             ;;
         
         # Go
         go)
             local output_file="${output_dir}/$(basename "$filename" .go)"
-            echo "🔨 编译 Go 文件..."
             "$compiler" build -o "$output_file" "$full_path"
             if [[ $? -eq 0 ]]; then
-                echo "✅ 编译成功: $output_file"
+                echo "✅ 编译成功"
                 if [[ $execute == true ]]; then
-                    echo "🏃 运行程序..."
                     "$output_file"
-                    if [[ $delete_after == true ]]; then
-                        rm -f "$output_file"
-                        echo "🗑️  已删除编译产物: $output_file"
-                    fi
+                    [[ $delete_after == true ]] && rm -f "$output_file"
                 fi
             else
                 echo "❌ 编译失败"
-                cd "$original_dir"  # 返回原目录
+                cd "$original_dir"
                 return 1
             fi
             ;;
@@ -766,10 +683,6 @@ execute_file() {
     
     # 返回原目录
     cd "$original_dir"
-    
-    echo "┌─────────────────────────────┐"
-    echo "│        执行结束             │"
-    echo "└─────────────────────────────┘"
     return 0
 }
 
@@ -778,9 +691,9 @@ execute_file() {
 # ==============================================
 check_availability() {
     echo ""
-    echo "┌─────────────────────────────┐"
-    echo "│     编译器可用性检查        │"
-    echo "└─────────────────────────────┘"
+    echo "┌──────────────────────────────────┐"
+    echo "│      编译器可用性检查            │"
+    echo "└──────────────────────────────────┘"
     
     # 按语言名排序，输出稳定
     for lang in $(echo "${!language_config[@]}" | tr ' ' '\n' | sort); do
@@ -813,26 +726,15 @@ check_availability() {
         done
     done
     echo ""
-    echo "└─────────────────────────────┘"
+    echo "└──────────────────────────────────┘"
 }
 
 # ==============================================
 # 主交互界面
 # ==============================================
 main_interface() {
-    echo ""
-    echo "┌─────────────────────────────┐"
-    echo "│        主界面               │"
-    echo "└─────────────────────────────┘"
-    echo "📝 使用说明:"
-    echo "   • 输入文件名(和编译器)单次执行"
-    echo "   • 输入 'vls' 查看当前目录源文件列表"
-    echo "   • 输入文件编号直接运行对应文件"
-    echo "   • 按 Ctrl+C 退出并显示配置种子"
-    echo "└─────────────────────────────┘"
-    
     # 全局数组存储vls命令列出的文件
-    local vls_files=()
+    vls_files=()
     
     while true; do
         # Get source directory for display (last 2 levels)
@@ -854,14 +756,6 @@ main_interface() {
                 continue
             elif [[ "${input[0]}" == "vls" ]]; then
                 vls
-                # 更新vls_files数组以便数字输入可以使用
-                vls_files=()
-                local extensions=("*.c" "*.cpp" "*.cxx" "*.cc" "*.java" "*.py" "*.sh" "*.js" "*.php" "*.m" "*.f" "*.f90" "*.f95" "*.f03" "*.f08" "*.rs" "*.kt" "*.go")
-                for ext in "${extensions[@]}"; do
-                    while IFS= read -r -d '' file; do
-                        vls_files+=("$file")
-                    done < <(find "$source_dir" -name "$ext" -type f -print0 2>/dev/null)
-                done
                 continue
             fi
             
@@ -935,21 +829,24 @@ main_interface() {
 # ==============================================
 main() {
     echo ""
-    echo "┌─────────────────────────────┐"
+    echo "┌──────────────────────────────────┐"
     echo "│      colM1_Chn v$VERSION       │"
-    echo "│     多语言编译运行工具         │"
-    echo "└─────────────────────────────┘"
+    echo "│      多语言编译运行工具          │"
+    echo "└──────────────────────────────────┘"
     echo "👋 欢迎使用 colM1_Chn！"
     echo "   • 输入 '--help' 获取帮助"
     echo "   • 输入 'vls' 查看源文件列表"
     echo "   • 输入 'checkavails' 查看编译器状态"
-    echo "└─────────────────────────────┘"
+    echo "└──────────────────────────────────┘"
     
     # 从命令行参数加载种子配置
     load_seed_from_args "$@"
     
     # 初始化配置
     initialize
+    
+    echo "📁 源目录: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+    echo ""
     
     # 进入主界面
     main_interface

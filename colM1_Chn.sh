@@ -3,20 +3,20 @@
 # ==============================================
 # 脚本版本信息
 # ==============================================
-VERSION="5.0.Chn"
+VERSION="Medium.1.0.Chn"
 
 # ==============================================
 # 显示帮助信息
 # ==============================================
 show_help() {
     echo "┌────────────────────────────────────────┐"
-    echo "│           colL $VERSION              │"
-    echo "│     多语言编译运行工具 (轻量版)        │"
+    echo "│        colM1_Chn $VERSION            │"
+    echo "│     多语言编译运行工具                │"
     echo "└────────────────────────────────────────┘"
     echo ""
     echo "📋 支持语言:"
     echo "   Java, C, C++, Python, Shell, JavaScript,"
-    echo "   PHP, Octave, Fortran, Rust, Kotlin"
+    echo "   PHP, Octave, Fortran, Rust, Kotlin, Go"
     echo ""
     echo "🔍 功能特性:"
     echo "   • 支持Termux环境"
@@ -24,7 +24,7 @@ show_help() {
     echo "   • Ctrl+C退出时显示配置种子"
     echo ""
     echo "🚀 快速开始:"
-    echo "   ./colL4_betterui.sh [配置种子]"
+    echo "   ./colM1_Chn.sh [配置种子]"
     echo ""
     echo "⚙️  配置种子选项:"
     echo "   f-<源文件路径>     配置源文件路径"
@@ -41,7 +41,7 @@ show_help() {
     echo "   -v, --version      显示版本信息"
     echo ""
     echo "📝 示例:"
-    echo "   ./colL4_betterui.sh f-./sources t-./builds op-clang-c,g++-cpp"
+    echo "   ./colM1_Chn.sh f-./sources t-./builds op-clang-c,g++-cpp"
     echo "   test.c"
     echo "   test.c gcc"
     echo "   vls"
@@ -73,8 +73,7 @@ show_help() {
 # ==============================================
 show_version() {
     echo "┌─────────────────────────────┐"
-    echo "│      colL 多语言编译工具    │"
-    echo "│         (轻量版)            │"
+    echo "│      colM1_Chn 多语言编译工具  │"
     echo "│           v$VERSION           │"
     echo "└─────────────────────────────┘"
 }
@@ -135,7 +134,7 @@ show_exit_seed() {
     done
     
     # 构建种子命令
-    local seed_command="./colL4_betterui.sh"
+    local seed_command="./colM1_Chn.sh"
     seed_command+=" f-${source_dir}"
     seed_command+=" t-${output_dir}"
     seed_command+=" op-$(IFS=,; echo "${current_ops[*]}")"
@@ -197,6 +196,7 @@ declare -A language_config=(
     ["fortran"]="gfortran:gfortran"
     ["rust"]="rustc:rustc"
     ["kotlin"]="kotlinc:kotlinc"
+    ["go"]="go:go"
 )
 
 # 状态变量
@@ -253,6 +253,8 @@ get_compiler_version() {
             version=$("$compiler" -version 2>&1 | head -1) ;;
         octave)
             version=$("$compiler" --version 2>/dev/null | head -1) ;;
+        go)
+            version=$("$compiler" version 2>/dev/null) ;;
         *)
             version=$("$compiler" --version 2>/dev/null | head -1) ;;
     esac
@@ -275,6 +277,7 @@ get_install_hint() {
         rustc) echo "pkg install rust" ;;
         kotlinc) echo "pkg install kotlin" ;;
         octave) echo "pkg install octave" ;;
+        go) echo "pkg install golang" ;;
         *) echo "（请手动安装 $compiler）" ;;
     esac
 }
@@ -374,6 +377,7 @@ apply_compiler_language_pairs() {
                     rustc) echo "   💡 建议安装: pkg install rust" ;;
                     kotlinc) echo "   💡 建议安装: pkg install kotlin" ;;
                     octave) echo "   💡 建议安装: pkg install octave" ;;
+                    go) echo "   💡 建议安装: pkg install golang" ;;
                 esac
             fi
         else
@@ -451,7 +455,7 @@ vls() {
     local found_files=()
     
     # 定义支持的文件扩展名
-    local extensions=("*.c" "*.cpp" "*.cxx" "*.cc" "*.java" "*.py" "*.sh" "*.js" "*.php" "*.m" "*.f" "*.f90" "*.f95" "*.f03" "*.f08" "*.rs" "*.kt")
+    local extensions=("*.c" "*.cpp" "*.cxx" "*.cc" "*.java" "*.py" "*.sh" "*.js" "*.php" "*.m" "*.f" "*.f90" "*.f95" "*.f03" "*.f08" "*.rs" "*.kt" "*.go")
     
     # 在源目录及其子目录中查找文件
     for ext in "${extensions[@]}"; do
@@ -512,6 +516,7 @@ execute_file() {
         *.f|*.f90|*.f95|*.f03|*.f08) lang="fortran" ;;
         *.rs) lang="rust" ;;
         *.kt) lang="kotlin" ;;
+        *.go) lang="go" ;;
         *) 
             echo "❌ 错误: 不支持的文件类型 '$filename'"
             return 1
@@ -542,6 +547,7 @@ execute_file() {
             rustc) echo "   💡 建议安装: pkg install rust" ;;
             kotlinc) echo "   💡 建议安装: pkg install kotlin" ;;
             octave) echo "   💡 建议安装: pkg install octave" ;;
+            go) echo "   💡 建议安装: pkg install golang" ;;
         esac
         return 1
     fi
@@ -728,6 +734,28 @@ execute_file() {
             octave --no-gui --eval "run('$full_path')"
             ;;
         
+        # Go
+        go)
+            local output_file="${output_dir}/$(basename "$filename" .go)"
+            echo "🔨 编译 Go 文件..."
+            "$compiler" build -o "$output_file" "$full_path"
+            if [[ $? -eq 0 ]]; then
+                echo "✅ 编译成功: $output_file"
+                if [[ $execute == true ]]; then
+                    echo "🏃 运行程序..."
+                    "$output_file"
+                    if [[ $delete_after == true ]]; then
+                        rm -f "$output_file"
+                        echo "🗑️  已删除编译产物: $output_file"
+                    fi
+                fi
+            else
+                echo "❌ 编译失败"
+                cd "$original_dir"  # 返回原目录
+                return 1
+            fi
+            ;;
+        
         # 未知编译器
         *)
             echo "❌ 错误: 不支持的编译器 '$compiler'"
@@ -809,7 +837,7 @@ main_interface() {
     while true; do
         # Get source directory for display (last 2 levels)
         local source_dir_display=$(format_path_for_display "$source_dir")
-        read -p "🟢[colL] $source_dir_display ❯ " -a input
+        read -p "🟢[colM1_Chn] $source_dir_display ❯ " -a input
         
         if [[ ${#input[@]} -eq 0 ]]; then
             continue
@@ -828,7 +856,7 @@ main_interface() {
                 vls
                 # 更新vls_files数组以便数字输入可以使用
                 vls_files=()
-                local extensions=("*.c" "*.cpp" "*.cxx" "*.cc" "*.java" "*.py" "*.sh" "*.js" "*.php" "*.m" "*.f" "*.f90" "*.f95" "*.f03" "*.f08" "*.rs" "*.kt")
+                local extensions=("*.c" "*.cpp" "*.cxx" "*.cc" "*.java" "*.py" "*.sh" "*.js" "*.php" "*.m" "*.f" "*.f90" "*.f95" "*.f03" "*.f08" "*.rs" "*.kt" "*.go")
                 for ext in "${extensions[@]}"; do
                     while IFS= read -r -d '' file; do
                         vls_files+=("$file")
@@ -864,7 +892,7 @@ main_interface() {
             
             # 前置校验：必须是支持的文件扩展名，否则立即报错，不走 find
             case "$filename" in
-                *.c|*.cpp|*.cxx|*.cc|*.java|*.py|*.sh|*.js|*.php|*.m|*.f|*.f90|*.f95|*.f03|*.f08|*.rs|*.kt)
+                *.c|*.cpp|*.cxx|*.cc|*.java|*.py|*.sh|*.js|*.php|*.m|*.f|*.f90|*.f95|*.f03|*.f08|*.rs|*.kt|*.go)
                     : # 合法扩展名，继续
                     ;;
                 *)
@@ -908,10 +936,10 @@ main_interface() {
 main() {
     echo ""
     echo "┌─────────────────────────────┐"
-    echo "│        colL v$VERSION         │"
-    echo "│ 多语言编译运行工具 (轻量版) │"
+    echo "│      colM1_Chn v$VERSION       │"
+    echo "│     多语言编译运行工具         │"
     echo "└─────────────────────────────┘"
-    echo "👋 欢迎使用 colL！"
+    echo "👋 欢迎使用 colM1_Chn！"
     echo "   • 输入 '--help' 获取帮助"
     echo "   • 输入 'vls' 查看源文件列表"
     echo "   • 输入 'checkavails' 查看编译器状态"

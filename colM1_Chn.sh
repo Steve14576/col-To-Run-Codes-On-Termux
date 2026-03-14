@@ -10,8 +10,8 @@ VERSION="M1.0.Chn"
 # ==============================================
 show_banner() {
     echo "┌──────────────────────────────────┐"
-    echo "│      colM1_Chn  v$VERSION        │"
-    echo "│      多语言编译运行工具           │"
+    echo "│          col $VERSION            │"
+    echo "│      多语言编译运行工具          │"
     echo "└──────────────────────────────────┘"
 }
 
@@ -414,7 +414,7 @@ initialize() {
 }
 
 # ==============================================
-# 列出当前目录下的源文件并编号（按目录分组，递归最多5层）
+# 列出源文件并编号（树形前序：'./'优先，其余按路径字典序 = DFS pre-order）
 # ==============================================
 vls() {
     echo "┌──────────────────────────────────┐"
@@ -436,49 +436,67 @@ vls() {
         fi
     done
 
-    # 收集文件：根目录优先，子目录按路径排序
-    local all_ordered=()
+    # 一次 find 收集全部文件
+    local all_files=()
     while IFS= read -r file; do
-        [[ -n "$file" ]] && all_ordered+=("$file")
-    done < <(find "$abs_source" -maxdepth 1 -mindepth 1 -type f \( "${find_args[@]}" \) 2>/dev/null | sort)
-    while IFS= read -r file; do
-        [[ -n "$file" ]] && all_ordered+=("$file")
-    done < <(find "$abs_source" -maxdepth 5 -mindepth 2 -type f \( "${find_args[@]}" \) 2>/dev/null | sort)
+        [[ -n "$file" ]] && all_files+=("$file")
+    done < <(find "$abs_source" -maxdepth 5 -mindepth 1 -type f \( "${find_args[@]}" \) 2>/dev/null)
 
-    if [[ ${#all_ordered[@]} -eq 0 ]]; then
+    if [[ ${#all_files[@]} -eq 0 ]]; then
         echo "❌ 当前目录及子目录中未找到支持的源文件"
         echo "└───────────────────────────────────"
         echo ""
         return 0
     fi
 
-    echo "找到 ${#all_ordered[@]} 个源文件:"
-
-    local prev_dir=""
-    local counter=1
-    vls_files=()
-
-    for file in "${all_ordered[@]}"; do
+    # 按目录分桶：_dir_files[dir] = 换行分隔的文件绝对路径列表
+    declare -A _dir_files
+    for file in "${all_files[@]}"; do
         local rel="${file#$abs_source/}"
         local dir
         dir=$(dirname "$rel")
+        if [[ -z "${_dir_files[$dir]+x}" ]]; then
+            _dir_files[$dir]="$file"
+        else
+            _dir_files[$dir]+=$'\n'"$file"
+        fi
+    done
 
-        # 目录切换时打印分组标题
-        if [[ "$dir" != "$prev_dir" ]]; then
-            echo ""
-            if [[ "$dir" == "." ]]; then
-                echo "  ./"
-            else
-                echo "  $dir/"
-            fi
-            prev_dir="$dir"
+    # DFS 树形排序：'.' 优先，其余路径字典序（父目录天然在子目录之前）
+    local sorted_dirs=()
+    while IFS= read -r dir; do
+        [[ -n "$dir" ]] && sorted_dirs+=("$dir")
+    done < <(
+        {
+            [[ -v "_dir_files[.]" ]] && echo "."
+            for dir in "${!_dir_files[@]}"; do
+                [[ "$dir" != "." ]] && echo "$dir"
+            done | sort
+        }
+    )
+
+    echo "找到 ${#all_files[@]} 个源文件:"
+
+    local counter=1
+    vls_files=()
+
+    for dir in "${sorted_dirs[@]}"; do
+        echo ""
+        if [[ "$dir" == "." ]]; then
+            echo "  ./"
+        else
+            echo "  $dir/"
         fi
 
-        local filename
-        filename=$(basename "$file")
-        printf "    %2d. %s\n" "$counter" "$filename"
-        vls_files+=("$file")
-        ((counter++))
+        # 目录内文件按文件名排序后输出
+        while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            local filename
+            filename=$(basename "$file")
+            printf "    %2d. %s\n" "$counter" "$filename"
+            vls_files+=("$file")
+            ((counter++))
+        done < <(echo "${_dir_files[$dir]}" | sort)
     done
 
     echo ""

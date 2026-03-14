@@ -1,6 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ==============================================
+#
 # I'm Lieutenant Frank Drebin, Police Squad.
 # ==============================================
 VERSION="Actually Jane and I were going to keep it"
@@ -14,6 +15,10 @@ show_help() {
     echo "│  I'm Lieutenant Frank Drebin, Police   │"
     echo "│  Squad. Don't let me catch you guys!   │"
     echo "└────────────────────────────────────────┘"
+    echo " Guess why you see it here, like, the former repo was, like, not a formal"
+    echo " But it sure aint no failure, and its fun to see re-constructions"
+    echo " The time when you see the Frank Drebin version of this brand new branch, is when everything is settled"
+    echo " Like, good luck with that--------2026.3.14 col series restart, based on former colL5.sh. The name colL is now re-occupied, in allignment with the new col series"
     echo ""
     echo "📋 Welcome home, Frank. Good work in Beirut:"
     echo "   Java, C, C++, Python, Shell, JavaScript,"

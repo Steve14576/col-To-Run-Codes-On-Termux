@@ -41,8 +41,12 @@ show_help() {
     echo "🎮 使用方法:"
     echo "   <文件名>           运行指定文件"
     echo "   <文件名> <编译器>  单次指定编译器运行"
-    echo "   vls                列出当前目录源文件并编号"
+    echo "   num                列出当前目录源文件并编号"
     echo "   <编号>             运行编号对应的文件"
+    echo "   vcd <路径>        设置虚拟目标目录（可指向~/之外）"
+    echo "   vcd -              清除虚拟目录"
+    echo "   vcd               查看当前虚拟目录"
+    echo "   vls [参数]        在虚拟目录中运行 ls"
     echo "   checkavails        显示编译器可用性"
     echo "   -h, --help         显示帮助信息"
     echo "   -v, --version      显示版本信息"
@@ -51,7 +55,7 @@ show_help() {
     echo "   ./colM1_Chn.sh f-./sources t-./builds op-clang-c,g++-cpp"
     echo "   test.c"
     echo "   test.c gcc"
-    echo "   vls"
+    echo "   num"
     echo "   1"
     echo "   checkavails"
     echo "   Ctrl+C (退出并显示配置种子)"
@@ -207,6 +211,7 @@ source_dir=""                     # 源文件路径
 output_dir=""                     # 编译产物路径
 execute=true                      # 编译后是否执行
 delete_after=true                 # 运行后是否删除产物
+VTARGET=""                        # v系列虚拟目标目录（可在~/之外）
 
 # ==============================================
 # 工具函数：解析语言配置
@@ -416,13 +421,14 @@ initialize() {
 # ==============================================
 # 列出源文件并编号（树形前序：'./'优先，其余按路径字典序 = DFS pre-order）
 # ==============================================
-vls() {
+num() {
     echo "┌──────────────────────────────────┐"
     echo "│      当前目录源文件列表          │"
     echo "└──────────────────────────────────┘"
 
     local abs_source
-    abs_source=$(realpath "$source_dir" 2>/dev/null || echo "$source_dir")
+    local _num_base="${VTARGET:-$source_dir}"
+    abs_source=$(realpath "$_num_base" 2>/dev/null || echo "$_num_base")
 
     # 构建 find 扩展名过滤参数
     local extensions=("*.c" "*.cpp" "*.cxx" "*.cc" "*.java" "*.py" "*.sh" "*.js" "*.php" "*.m" "*.f" "*.f90" "*.f95" "*.f03" "*.f08" "*.rs" "*.kt" "*.go")
@@ -478,7 +484,7 @@ vls() {
     echo "找到 ${#all_files[@]} 个源文件:"
 
     local counter=1
-    vls_files=()
+    num_files=()
 
     for dir in "${sorted_dirs[@]}"; do
         echo ""
@@ -494,7 +500,7 @@ vls() {
             local filename
             filename=$(basename "$file")
             printf "    %2d. %s\n" "$counter" "$filename"
-            vls_files+=("$file")
+            num_files+=("$file")
             ((counter++))
         done < <(echo "${_dir_files[$dir]}" | sort)
     done
@@ -503,6 +509,62 @@ vls() {
     echo "💡 输入文件编号可直接运行对应文件"
     echo "└───────────────────────────────────"
     echo ""
+}
+
+# ==============================================
+# v系列：虚拟目录管理（权限跨越层）
+# ==============================================
+
+# vcd：设置 / 查看 / 清除虚拟目标目录
+vcd() {
+    local target="${1:-}"
+
+    if [[ -z "$target" ]]; then
+        # 无参数：显示当前状态
+        echo "┌──────────────────────────────────┐"
+        if [[ -z "$VTARGET" ]]; then
+            echo "│  📍 未设置虚拟目录"
+            echo "│     当前使用源目录: $(format_path_for_display "$source_dir")"
+        else
+            echo "│  🔗 虚拟目录: $VTARGET"
+        fi
+        echo "└───────────────────────────────────"
+        echo ""
+        return 0
+    fi
+
+    if [[ "$target" == "-" ]]; then
+        # 清除虚拟目录
+        VTARGET=""
+        echo "└─ 已清除虚拟目录，恢复使用源目录: $(format_path_for_display "$source_dir")"
+        echo ""
+        return 0
+    fi
+
+    # 相对路径基于 VTARGET（或 source_dir）拼接
+    if [[ "$target" != /* ]]; then
+        local _base="${VTARGET:-$source_dir}"
+        target="$_base/$target"
+    fi
+
+    # 验证路径可读
+    if [[ ! -d "$target" ]]; then
+        echo "❌ 路径不存在或非目录: '$target'"
+        echo "└───────────────────────────────────"
+        echo ""
+        return 1
+    fi
+
+    VTARGET=$(realpath "$target" 2>/dev/null || echo "$target")
+    echo "└─ 🔗 虚拟目录已设置: $VTARGET"
+    echo ""
+    return 0
+}
+
+# vls：在虚拟目录中执行 ls（支持传递 ls 参数）
+vls() {
+    local target="${VTARGET:-$source_dir}"
+    ls "$@" "$target"
 }
 
 # ==============================================
@@ -763,13 +825,18 @@ check_availability() {
 # 主交互界面
 # ==============================================
 main_interface() {
-    # 全局数组存储vls命令列出的文件
-    vls_files=()
+    # 全局数组存储num命令列出的文件
+    num_files=()
     
     while true; do
-        # Get source directory for display (last 2 levels)
-        local source_dir_display=$(format_path_for_display "$source_dir")
-        read -p "🟢[colM1_Chn] $source_dir_display ❯ " -a input
+        # 提示符：VTARGET已设置时用🔵+🔗标识
+        if [[ -n "$VTARGET" ]]; then
+            local _prompt_dir=$(format_path_for_display "$VTARGET")
+            read -p "🔵[colM1_Chn]🔗 $_prompt_dir ❯ " -a input
+        else
+            local _prompt_dir=$(format_path_for_display "$source_dir")
+            read -p "🟢[colM1_Chn] $_prompt_dir ❯ " -a input
+        fi
         
         if [[ ${#input[@]} -eq 0 ]]; then
             continue
@@ -784,30 +851,36 @@ main_interface() {
             elif [[ "${input[0]}" == "checkavails" ]]; then
                 check_availability
                 continue
+            elif [[ "${input[0]}" == "vcd" ]]; then
+                vcd "${input[1]:-}"
+                continue
             elif [[ "${input[0]}" == "vls" ]]; then
-                vls
+                vls "${input[@]:1}"
+                continue
+            elif [[ "${input[0]}" == "num" ]]; then
+                num
                 continue
             fi
             
             # 检查是否为数字输入（文件编号）
             if [[ "${input[0]}" =~ ^[0-9]+$ ]]; then
                 # 检查是否有文件列表
-                if [[ ${#vls_files[@]} -eq 0 ]]; then
-                    echo "❌ 错误: 请先运行 'vls' 命令查看文件列表"
+                if [[ ${#num_files[@]} -eq 0 ]]; then
+                    echo "❌ 错误: 请先运行 'num' 命令查看文件列表"
                     echo "└───────────────────────────────────"
                     echo ""
                     continue
                 fi
                 
                 local selection=${input[0]}
-                if [[ $selection -lt 1 || $selection -gt ${#vls_files[@]} ]]; then
-                    echo "❌ 错误: 无效的文件编号 (请输入 1-${#vls_files[@]} 之间的数字)"
+                if [[ $selection -lt 1 || $selection -gt ${#num_files[@]} ]]; then
+                    echo "❌ 错误: 无效的文件编号 (请输入 1-${#num_files[@]} 之间的数字)"
                     echo "└───────────────────────────────────"
                     echo ""
                     continue
                 fi
                 
-                local selected_file="${vls_files[$((selection-1))]}"
+                local selected_file="${num_files[$((selection-1))]}"
                 local compiler="${input[1]}"  # 可选的编译器参数
                 echo "📁 运行文件: $(basename "$selected_file")"
                 execute_file "$selected_file" "$compiler"
@@ -827,7 +900,7 @@ main_interface() {
                     ;;
                 *)
                     echo "❌ 未知命令或不支持的文件类型: '$filename'"
-                    echo "   💡 输入 '--help' 查看帮助，输入 'vls' 列出源文件"
+                    echo "   💡 输入 '--help' 查看帮助，输入 'num' 列出源文件"
                     echo "└───────────────────────────────────"
                     echo ""
                     continue
@@ -835,11 +908,12 @@ main_interface() {
             esac
             
             # Recursively find file
-            local found_files=($(find_file_recursive "$filename" "$source_dir"))
+            local _search_dir="${VTARGET:-$source_dir}"
+            local found_files=($(find_file_recursive "$filename" "$_search_dir"))
             
             if [[ ${#found_files[@]} -eq 0 ]]; then
                 # Show full path in error message
-                local source_full_path=$(realpath "$source_dir" 2>/dev/null || echo "$source_dir")
+                local source_full_path=$(realpath "$_search_dir" 2>/dev/null || echo "$_search_dir")
                 echo "❌ 错误: 在 '${source_full_path}' 及其子目录中未找到文件 '$filename'"
                 echo "└───────────────────────────────────"
                 echo ""
@@ -884,7 +958,7 @@ main() {
     show_banner
     echo "👋 欢迎使用 colM1_Chn！"
     echo "   • 输入 '--help' 获取帮助"
-    echo "   • 输入 'vls' 查看源文件列表"
+    echo "   • 输入 'num' 查看源文件列表"
     echo "   • 输入 'checkavails' 查看编译器状态"
     echo "📁 源目录: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
     echo "└───────────────────────────────────"

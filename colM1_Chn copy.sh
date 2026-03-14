@@ -519,10 +519,24 @@ num() {
 vcd() {
     local target="${1:-}"
 
-    if [[ -z "$target" || "$target" == "-" ]]; then
-        # 无参数 / vcd - ：回家（清除 VTARGET）
+    if [[ -z "$target" ]]; then
+        # 无参数：显示当前状态
+        echo "┌──────────────────────────────────┐"
+        if [[ -z "$VTARGET" ]]; then
+            echo "│  📍 未设置虚拟目录"
+            echo "│     当前使用源目录: $(format_path_for_display "$source_dir")"
+        else
+            echo "│  🔗 虚拟目录: $VTARGET"
+        fi
+        echo "└───────────────────────────────────"
+        echo ""
+        return 0
+    fi
+
+    if [[ "$target" == "-" ]]; then
+        # 清除虚拟目录
         VTARGET=""
-        echo "└─ 🏠 已回到源目录: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+        echo "└─ 已清除虚拟目录，恢复使用源目录: $(format_path_for_display "$source_dir")"
         echo ""
         return 0
     fi

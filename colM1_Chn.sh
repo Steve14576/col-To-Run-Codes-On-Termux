@@ -65,7 +65,7 @@ show_help() {
             printf "   ❌ %-12s → %-8s  未安装   💡 %s\n" "$lang" "$compiler" "$hint"
         fi
     done
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
     echo ""
 }
 
@@ -141,7 +141,7 @@ show_exit_seed() {
     seed_command+=" op-$(IFS=,; echo "${current_ops[*]}")"
     
     echo "  $seed_command"
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
 }
 
 # ==============================================
@@ -329,13 +329,8 @@ apply_compiler_language_pairs() {
     local op_list=(${ops//,/ })  # 用逗号分隔多个映射
     
     for op in "${op_list[@]}"; do
-        # Check for path configuration parameters
-        if [[ $op == f-* ]]; then
-            source_dir="${op#f-}"
-        elif [[ $op == t-* ]]; then
-            output_dir="${op#t-}"
         # Handle compiler-language mappings
-        elif [[ $op == *-* ]]; then
+        if [[ $op == *-* ]]; then
             # 解析编译器-语言对
             local compiler=$(echo "$op" | cut -d'-' -f1)
             local lang=$(echo "$op" | cut -d'-' -f2)
@@ -448,7 +443,7 @@ vls() {
 
     if [[ ${#all_ordered[@]} -eq 0 ]]; then
         echo "❌ 当前目录及子目录中未找到支持的源文件"
-        echo "└──────────────────────────────────┘"
+        echo "└───────────────────────────────────"
         echo ""
         return 0
     fi
@@ -484,7 +479,7 @@ vls() {
 
     echo ""
     echo "💡 输入文件编号可直接运行对应文件"
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
     echo ""
 }
 
@@ -738,7 +733,7 @@ check_availability() {
         done
     done
     echo ""
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
     echo ""
 }
 
@@ -777,7 +772,7 @@ main_interface() {
                 # 检查是否有文件列表
                 if [[ ${#vls_files[@]} -eq 0 ]]; then
                     echo "❌ 错误: 请先运行 'vls' 命令查看文件列表"
-                    echo "└──────────────────────────────────┘"
+                    echo "└───────────────────────────────────"
                     echo ""
                     continue
                 fi
@@ -785,7 +780,7 @@ main_interface() {
                 local selection=${input[0]}
                 if [[ $selection -lt 1 || $selection -gt ${#vls_files[@]} ]]; then
                     echo "❌ 错误: 无效的文件编号 (请输入 1-${#vls_files[@]} 之间的数字)"
-                    echo "└──────────────────────────────────┘"
+                    echo "└───────────────────────────────────"
                     echo ""
                     continue
                 fi
@@ -794,7 +789,7 @@ main_interface() {
                 local compiler="${input[1]}"  # 可选的编译器参数
                 echo "📁 运行文件: $(basename "$selected_file")"
                 execute_file "$selected_file" "$compiler"
-                echo "└──────────────────────────────────┘"
+                echo "└───────────────────────────────────"
                 echo ""
                 continue
             fi
@@ -811,7 +806,7 @@ main_interface() {
                 *)
                     echo "❌ 未知命令或不支持的文件类型: '$filename'"
                     echo "   💡 输入 '--help' 查看帮助，输入 'vls' 列出源文件"
-                    echo "└──────────────────────────────────┘"
+                    echo "└───────────────────────────────────"
                     echo ""
                     continue
                     ;;
@@ -824,7 +819,7 @@ main_interface() {
                 # Show full path in error message
                 local source_full_path=$(realpath "$source_dir" 2>/dev/null || echo "$source_dir")
                 echo "❌ 错误: 在 '${source_full_path}' 及其子目录中未找到文件 '$filename'"
-                echo "└──────────────────────────────────┘"
+                echo "└───────────────────────────────────"
                 echo ""
                 continue
             elif [[ ${#found_files[@]} -gt 1 ]]; then
@@ -833,7 +828,9 @@ main_interface() {
                 for i in "${!found_files[@]}"; do
                     echo "   $((i+1)). ${found_files[$i]}"
                 done
-                read -p "🔢 请选择要执行的文件序号: " selection
+                read -p "🔢 请选择要执行的文件序号 [编号 (编译器)]: " -a sel_input
+                local selection="${sel_input[0]}"
+                local override_compiler="${sel_input[1]}"
                 if [[ $selection -lt 1 || $selection -gt ${#found_files[@]} ]]; then
                     echo "❌ 错误: 无效的序号"
                     echo "└──────────────────────────────────┘"
@@ -841,12 +838,12 @@ main_interface() {
                     continue
                 fi
                 local selected_file="${found_files[$((selection-1))]}"
-                execute_file "$selected_file" "$compiler"
-                echo "└──────────────────────────────────┘"
+                execute_file "$selected_file" "${override_compiler:-$compiler}"
+                echo "└───────────────────────────────────"
                 echo ""
             else
                 execute_file "${found_files[0]}" "$compiler"
-                echo "└──────────────────────────────────┘"
+                echo "└───────────────────────────────────"
                 echo ""
             fi
         fi
@@ -871,7 +868,7 @@ main() {
     echo "   • 输入 'vls' 查看源文件列表"
     echo "   • 输入 'checkavails' 查看编译器状态"
     echo "📁 源目录: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
     echo ""
     
     # 进入主界面

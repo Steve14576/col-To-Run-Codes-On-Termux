@@ -1,55 +1,58 @@
 #!/data/data/com.termux/files/usr/bin/bash
+# [COL_SEED]
 
 # ==============================================
-# Script version info
+# Script Version Info
 # ==============================================
-VERSION="M1.0.Eng"
+VERSION="M1.1.Eng"
 
 # ==============================================
-# Unified Banner (version box)
+# Unified Banner (Version Box)
 # ==============================================
 show_banner() {
     echo "┌──────────────────────────────────┐"
     echo "│          col $VERSION            │"
-    echo "│   Multi-language Compile & Run   │"
+    echo "│   Multi-Language Build & Run Tool │"
     echo "└──────────────────────────────────┘"
 }
 
 # ==============================================
-# Display help information
+# Display Help Information
 # ==============================================
 show_help() {
     show_banner
     echo ""
-    echo "📋 Supported languages:"
+    echo "📋 Supported Languages:"
     echo "   Java, C, C++, Python, Shell, JavaScript,"
     echo "   PHP, Octave, Fortran, Rust, Kotlin, Go"
     echo ""
     echo "🔍 Features:"
     echo "   • Termux environment support"
     echo "   • Recursive source file search"
-    echo "   • Ctrl+C shows config seed on exit"
+    echo "   • Show config seed on Ctrl+C exit"
     echo ""
     echo "🚀 Quick Start:"
-    echo "   ./colM1_Eng.sh [config-seed]"
+    echo "   ./colM1_Eng.sh [config seed]"
     echo ""
-    echo "⚙️  Config seed options:"
-    echo "   f-<source-path>     Set source file directory"
-    echo "   t-<output-path>     Set build output directory"
-    echo "   op-<mapping>        Set compiler-language mapping"
+    echo "⚙️  Config Seed Options:"
+    echo "   f-<source path>      Set source file path"
+    echo "   t-<output path>      Set build output path"
+    echo "   op-<mapping>         Set compiler-language mapping"
     echo ""
     echo "🎮 Usage:"
-    echo "   <filename>           Run the specified file"
-    echo "   <filename> <compiler>  Run with a specific compiler (once)"
-    echo "   num                  List source files in current directory with numbers"
-    echo "   <number>             Run the file by its listed number"
+    echo "   <filename>           Run specified file"
+    echo "   <filename> <compiler> Run with specific compiler"
+    echo "   num                  List source files with numbers"
+    echo "   <number>             Run file by number"
     echo "   vcd <path>          Set virtual target directory (can point outside ~/)"
     echo "   vcd -                Clear virtual directory"
-    echo "   vcd                 Show current virtual directory"
-    echo "   vls [args]          Run ls in the virtual directory"
-    echo "   checkavails          Show compiler availability"
-    echo "   -h, --help           Show this help"
-    echo "   -v, --version        Show version info"
+    echo "   vcd                  View current virtual directory"
+    echo "   vls [args]          Run ls in virtual directory"
+    echo "   status               Current status overview (paths + compiler availability)"
+    echo "   save                 Save current config to built-in seed"
+    echo "   reset                Clear built-in seed, return to defaults"
+    echo "   -h, --help           Show help information"
+    echo "   -v, --version        Show version information"
     echo ""
     echo "📝 Examples:"
     echo "   ./colM1_Eng.sh f-./sources t-./builds op-clang-c,g++-cpp"
@@ -57,23 +60,25 @@ show_help() {
     echo "   test.c gcc"
     echo "   num"
     echo "   1"
-    echo "   checkavails"
+    echo "   status"
+    echo "   save"
+    echo "   reset"
     echo "   Ctrl+C (exit and show config seed)"
     echo ""
-    echo "💡 Tip: You can also type --help or --version in interactive mode"
+    echo "💡 Tip: You can also input --help or --version in interactive mode"
     echo ""
-    echo "🌐 Current environment language support:"
+    echo "🌐 Current Environment Language Support:"
     echo ""
-    # Sort by language name for stable output
+    # Display sorted by language name to avoid random order
     for lang in $(echo "${!language_config[@]}" | tr ' ' '\n' | sort); do
-        # Prefer compiler set in this session, otherwise use built-in default
+        # Prefer compiler set in current session, otherwise use built-in default
         local compiler="${lang_default_compiler[$lang]:-$(get_default_default "$lang")}"
         if is_installed "$compiler"; then
             local version=$(get_compiler_version "$compiler")
             printf "   ✅ %-12s → %-8s  %s\n" "$lang" "$compiler" "$version"
         else
             local hint=$(get_install_hint "$compiler")
-            printf "   ❌ %-12s → %-8s  not installed   💡 %s\n" "$lang" "$compiler" "$hint"
+            printf "   ❌ %-12s → %-8s  Not Installed   💡 %s\n" "$lang" "$compiler" "$hint"
         fi
     done
     echo "└───────────────────────────────────"
@@ -81,7 +86,7 @@ show_help() {
 }
 
 # ==============================================
-# Display version information
+# Display Version Information
 # ==============================================
 show_version() {
     show_banner
@@ -89,12 +94,12 @@ show_version() {
 }
 
 # ==============================================
-# Trap Ctrl+C: show config seed on exit
+# Capture Ctrl+C signal, show current config seed on exit
 # ==============================================
 trap 'show_exit_seed; echo -e "\nProgram terminated"; exit 0' SIGINT
 
 # ==============================================
-# Utility: format directory path for display
+# Utility: Format directory path for display
 # ==============================================
 format_path_for_display() {
     local path="$1"
@@ -127,14 +132,14 @@ format_path_for_display() {
 }
 
 # ==============================================
-# Show exit seed (config snapshot)
+# Display Exit Seed Information
 # ==============================================
 show_exit_seed() {
     echo "┌──────────────────────────────────┐"
-    echo "│           Config Seed            │"
-    echo "│  Use this command to reinit:     │"
+    echo "│         Config Seed              │"
+    echo "│  Use this command to init next:  │"
     
-    # Collect current compiler opcodes
+    # Collect current config opcodes
     local current_ops=()
     
     for lang in "${!language_config[@]}"; do
@@ -153,7 +158,7 @@ show_exit_seed() {
 }
 
 # ==============================================
-# Load seed config from command-line arguments
+# Load seed from command line arguments
 # ==============================================
 load_seed_from_args() {
     local args=("$@")
@@ -187,8 +192,151 @@ load_seed_from_args() {
 }
 
 # ==============================================
-# Internal registry: language-compiler mapping (core config)
-# Structure: lang -> "default_compiler:candidate1,candidate2,..."
+# Seed Persistence: Incremental Apply/Load/Save/Reset
+# ==============================================
+
+# Incrementally apply seed fragment (does not reset existing config)
+apply_seed_fragment() {
+    for arg in "$@"; do
+        if [[ "$arg" == f-* ]]; then
+            source_dir="${arg#f-}"
+        elif [[ "$arg" == t-* ]]; then
+            output_dir="${arg#t-}"
+        elif [[ "$arg" == op-* ]]; then
+            op_codes="${arg#op-}"
+            apply_compiler_language_pairs "$op_codes"
+        fi
+    done
+}
+
+# Load config from built-in # [COL_SEED] line in script
+load_stored_seed() {
+    local script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local stored
+    stored=$(grep '^# \[COL_SEED\]' "$script_path" 2>/dev/null | sed 's/^# \[COL_SEED\] \?//')
+    if [[ -n "$stored" ]]; then
+        apply_seed_fragment $stored
+        return 0
+    fi
+    return 1
+}
+
+# Save current config to built-in seed in script
+save_seed() {
+    local script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local seed_str="f-${source_dir} t-${output_dir}"
+    # Only include non-default compiler mappings
+    local op_parts=()
+    for lang in "${!lang_default_compiler[@]}"; do
+        local compiler="${lang_default_compiler[$lang]}"
+        local default_compiler
+        default_compiler=$(get_default_default "$lang")
+        if [[ "$compiler" != "$default_compiler" ]]; then
+            op_parts+=("${compiler}-${lang}")
+        fi
+    done
+    if [[ ${#op_parts[@]} -gt 0 ]]; then
+        seed_str+=" op-$(IFS=,; echo "${op_parts[*]}")"
+    fi
+    sed -i "s|^# \[COL_SEED\].*|# [COL_SEED] ${seed_str}|" "$script_path"
+    echo "   └─ 💾 Seed saved: $seed_str"
+    echo ""
+}
+
+# Clear built-in seed in script, return to defaults
+reset_seed() {
+    local script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    sed -i "s|^# \[COL_SEED\].*|# [COL_SEED]|" "$script_path"
+    echo "   └─ 🔄 Seed cleared"
+    echo ""
+}
+
+# ==============================================
+# Startup Seed Input mini-REPL
+# ==============================================
+seed_startup_repl() {
+    local script_path
+    script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local stored
+    stored=$(grep '^# \[COL_SEED\]' "$script_path" 2>/dev/null | sed 's/^# \[COL_SEED\] \?//')
+
+    echo "┌───────────────────────────────────"
+    echo "│  ⚙️ Seed Config  (Press Enter twice to skip)"
+    if [[ -n "$stored" ]]; then
+        echo "│  💾 Last record: $stored"
+    else
+        echo "│  💾 Last record: (empty)"
+    fi
+    echo "│  📝 Format: f-<path>  t-<path>  op-<compiler>-<language>  "
+    echo "│           [add save to save seed]  [add reset to reset seed to default]"
+    echo "└───────────────────────────────────"
+    echo ""
+
+    local empty_count=0
+    local _rlines=0  # Track REPL lines printed (including empty lines)
+    while true; do
+        read -rp "  [Seed] ❱ " seed_input
+        (( _rlines++ ))
+
+        if [[ -z "$seed_input" ]]; then
+            (( empty_count++ ))
+            if [[ $empty_count -ge 2 ]]; then
+                break
+            fi
+            echo "      (Press Enter again to enter)"
+            (( _rlines++ ))
+            continue
+        fi
+
+        empty_count=0
+
+        # reset
+        if [[ "$seed_input" == "reset" ]]; then
+            reset_seed
+            (( _rlines += 2 ))
+            local script_dir
+            script_dir=$(dirname "$0")
+            source_dir="$script_dir"
+            output_dir="$script_dir"
+            continue
+        fi
+
+        # save standalone = save current full config
+        if [[ "$seed_input" == "save" ]]; then
+            save_seed
+            (( _rlines += 2 ))
+            continue
+        fi
+
+        # Check for save suffix
+        local do_save=false
+        local seed_part="$seed_input"
+        if [[ "$seed_input" == *" save" ]]; then
+            do_save=true
+            seed_part="${seed_input% save}"
+        fi
+
+        # Incrementally apply seed fragment
+        apply_seed_fragment $seed_part
+
+        if $do_save; then
+            save_seed
+            (( _rlines += 2 ))
+        fi
+    done
+    # Move up _rlines+7 (header box 6 lines + empty line 1), clear to end of screen
+    printf '\033[%dA\033[J' "$(( _rlines + 7 ))"
+    echo "└─ ⚙️ Config completed  f-${source_dir} t-${output_dir}"
+    echo ""
+    echo "📂 Source: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+    echo "🛠️ Output: $(realpath "$output_dir" 2>/dev/null || echo "$output_dir")"
+    echo "└───────────────────────────────────"
+    echo ""
+}
+
+# ==============================================
+# Internal: Language-Compiler Mapping Table (Core Config)
+# Structure: language -> [default compiler, [alternative compilers...]]
 # ==============================================
 declare -A language_config=(
     ["c"]="clang:gcc,clang"
@@ -206,15 +354,15 @@ declare -A language_config=(
 )
 
 # State variables
-declare -A lang_default_compiler  # User-set default compiler per language
-source_dir=""                     # Source file directory
-output_dir=""                     # Build output directory
-execute=true                      # Whether to execute after compiling
-delete_after=true                 # Whether to delete artifact after running
+declare -A lang_default_compiler  # User-set default compiler for each language
+source_dir=""                     # Source file path
+output_dir=""                     # Build output path
+execute=true                      # Execute after compile
+delete_after=true                 # Delete output after run
 VTARGET=""                        # v-series virtual target directory (can be outside ~/)
 
 # ==============================================
-# Utility: parse language config
+# Utility: Parse language config
 # ==============================================
 get_default_default() {
     echo "${language_config[$1]%%:*}"
@@ -225,14 +373,14 @@ get_candidates() {
 }
 
 # ==============================================
-# Utility: check if a command is installed
+# Utility: Check if command is installed
 # ==============================================
 is_installed() {
     command -v "$1" &> /dev/null
 }
 
 # ==============================================
-# Utility: get compiler version string
+# Utility: Get compiler version string
 # ==============================================
 get_compiler_version() {
     local compiler="$1"
@@ -267,7 +415,7 @@ get_compiler_version() {
 }
 
 # ==============================================
-# Utility: get install hint for a compiler
+# Utility: Get compiler install hint command
 # ==============================================
 get_install_hint() {
     local compiler="$1"
@@ -283,25 +431,27 @@ get_install_hint() {
         kotlinc) echo "pkg install kotlin" ;;
         octave) echo "pkg install octave" ;;
         go) echo "pkg install golang" ;;
-        *) echo "(please install $compiler manually)" ;;
+        *) echo "(Please manually install $compiler)" ;;
     esac
 }
 
 # ==============================================
-# Utility: recursively find a file
+# Utility: Recursively find file
 # ==============================================
 find_file_recursive() {
     local filename="$1"
     local search_dir="$2"
     
-    # Search for file in source directory and subdirectories
+    # Find file in source directory and subdirectories
     local found_files=()
     while IFS= read -r -d '' file; do
         found_files+=("$file")
     done < <(find "$search_dir" -maxdepth 5 -name "$filename" -type f -print0 2>/dev/null)
     
-    # Fallback to common Android storage paths if source_dir is explicitly "." or "./"
+    # If not found in current search dir, try Android storage paths
+    # Only enabled when source_dir is explicit relative path "." or "./" to avoid scanning entire storage
     if [[ ${#found_files[@]} -eq 0 && ( "$search_dir" == "." || "$search_dir" == "./" ) ]]; then
+        # Try common Android storage locations
         local android_paths=(
             "/storage/emulated/0/"
             "/sdcard/"
@@ -320,12 +470,12 @@ find_file_recursive() {
         done
     fi
     
-    # Return results
+    # Return search results
     echo "${found_files[@]}"
 }
 
 # ==============================================
-# Apply compiler-language pairs (for auto-init)
+# Apply Compiler-Language Mapping (for auto-initialization)
 # ==============================================
 apply_compiler_language_pairs() {
     local ops=$1
@@ -333,7 +483,7 @@ apply_compiler_language_pairs() {
         return 0
     fi
     
-    local op_list=(${ops//,/ })  # Split by comma
+    local op_list=(${ops//,/ })  # Split multiple mappings by comma
     
     for op in "${op_list[@]}"; do
         # Handle compiler-language mappings
@@ -342,41 +492,41 @@ apply_compiler_language_pairs() {
             local compiler=$(echo "$op" | cut -d'-' -f1)
             local lang=$(echo "$op" | cut -d'-' -f2)
             
-            # Validate language is supported
+            # Verify language is supported
             if [[ -z "${language_config[$lang]}" ]]; then
                 echo "⚠️  Unsupported language '$lang' (ignored)"
                 continue
             fi
             
-            # Validate compiler is in the candidate list for this language
+            # Verify compiler is in candidate list for this language
             local candidates=$(get_candidates "$lang")
             if [[ ! " $candidates " =~ " $compiler " ]]; then
-                echo "⚠️  Compiler '$compiler' is not supported for language '$lang' (ignored)"
+                echo "⚠️  Compiler '$compiler' not supported for $lang language (ignored)"
                 continue
             fi
             
             # Apply config
             lang_default_compiler[$lang]=$compiler
             
-            # Warn if compiler not installed
+            # Check if install hint needed
             if ! is_installed "$compiler"; then
-                echo "⚠️  Note: $compiler is not installed"
+                echo "⚠️  Note: $compiler not installed"
                 echo "   💡 Suggested install: $(get_install_hint "$compiler")"
             fi
         else
-            echo "⚠️  Unknown config entry '$op' (ignored)"
+            echo "⚠️  Unknown config '$op' (ignored)"
         fi
     done
 }
 
 # ==============================================
-# Initialization flow
+# Initialization Process
 # ==============================================
 initialize() {
-    # Use script directory as default path
+    # Get script directory as default path
     local script_dir=$(dirname "$0")
     
-    # 1. Configure source directory
+    # 1. Configure source file path
     local default_source="$script_dir"
     source_dir=${source_dir:-$default_source}
     
@@ -386,11 +536,11 @@ initialize() {
     fi
     
     if [[ ! -d "$source_dir" ]]; then
-        echo "⚠️  Source directory does not exist, using default"
+        echo "⚠️  Source path does not exist, using default path"
         source_dir=$default_source
     fi
     
-    # 2. Configure output directory
+    # 2. Configure build output path
     local default_output="$script_dir"
     output_dir=${output_dir:-$default_output}
     
@@ -400,12 +550,12 @@ initialize() {
     fi
     
     if [[ ! -d "$output_dir" ]]; then
-        echo "⚠️  Output directory does not exist, using default"
+        echo "⚠️  Output path does not exist, using default path"
         output_dir=$default_output
     fi
     
     # 3. Apply default compiler config
-    # Set all languages to their built-in defaults first
+    # First set all languages to default recommendation
     for lang in "${!language_config[@]}"; do
         lang_default_compiler[$lang]=$(get_default_default "$lang")
     done
@@ -417,12 +567,11 @@ initialize() {
 }
 
 # ==============================================
-# List source files with numbers
-# (Tree pre-order: './' first, then path-lexicographic DFS)
+# List source files with numbers (tree pre-order: './' first, then dict order = DFS pre-order)
 # ==============================================
 num() {
     echo "┌──────────────────────────────────┐"
-    echo "│      Source Files in Directory   │"
+    echo "│      Source File List            │"
     echo "└──────────────────────────────────┘"
 
     local abs_source
@@ -441,20 +590,20 @@ num() {
         fi
     done
 
-    # Collect all files in one find pass
+    # Collect all files with one find
     local all_files=()
     while IFS= read -r file; do
         [[ -n "$file" ]] && all_files+=("$file")
     done < <(find "$abs_source" -maxdepth 5 -mindepth 1 -type f \( "${find_args[@]}" \) 2>/dev/null)
 
     if [[ ${#all_files[@]} -eq 0 ]]; then
-        echo "❌ No supported source files found in directory or subdirectories"
+        echo "❌ No supported source files found in current directory and subdirectories"
         echo "└───────────────────────────────────"
         echo ""
         return 0
     fi
 
-    # Bucket files by directory: _dir_files[dir] = newline-separated absolute paths
+    # Bucket by directory: _dir_files[dir] = newline-separated file absolute paths
     declare -A _dir_files
     for file in "${all_files[@]}"; do
         local rel="${file#$abs_source/}"
@@ -467,20 +616,20 @@ num() {
         fi
     done
 
-    # DFS tree sort: '.' first, then lexicographic (parent dirs naturally before children)
+    # DFS tree sort: '.' first, then path dict order (parent naturally before child)
     local sorted_dirs=()
     while IFS= read -r dir; do
         [[ -n "$dir" ]] && sorted_dirs+=("$dir")
     done < <(
         {
             [[ -v "_dir_files[.]" ]] && echo "."
-            for dir in "${!_dir_files[@]}"; do
+            for dir in "${_dir_files[@]}"; do
                 [[ "$dir" != "." ]] && echo "$dir"
             done | sort
         }
     )
 
-    echo "Found ${#all_files[@]} source file(s):"
+    echo "Found ${#all_files[@]} source files:"
 
     local counter=1
     num_files=()
@@ -493,7 +642,7 @@ num() {
             echo "  $dir/"
         fi
 
-        # Output files in each directory sorted by filename
+        # Sort files within directory by filename
         while IFS= read -r file; do
             [[ -n "$file" ]] || continue
             local filename
@@ -505,48 +654,34 @@ num() {
     done
 
     echo ""
-    echo "💡 Enter a file number to run the corresponding file"
+    echo "💡 Enter file number to run corresponding file"
     echo "└───────────────────────────────────"
     echo ""
 }
 
 # ==============================================
-# v-series: virtual directory management (permission crossing layer)
+# v-series: Virtual Directory Management (Permission Crossing Layer)
 # ==============================================
 
-# vcd: set / show / clear virtual target directory
+# vcd: Set / View / Clear virtual target directory
 vcd() {
     local target="${1:-}"
 
-    if [[ -z "$target" ]]; then
-        # No argument: show current status
-        echo "┌──────────────────────────────────┐"
-        if [[ -z "$VTARGET" ]]; then
-            echo "│  📍 No virtual directory set"
-            echo "│     Currently using source dir: $(format_path_for_display "$source_dir")"
-        else
-            echo "│  🔗 Virtual directory: $VTARGET"
-        fi
-        echo "└───────────────────────────────────"
-        echo ""
-        return 0
-    fi
-
-    if [[ "$target" == "-" ]]; then
-        # Clear virtual directory
+    if [[ -z "$target" || "$target" == "-" ]]; then
+        # No args / vcd - : go home (clear VTARGET)
         VTARGET=""
-        echo "└─ Virtual directory cleared, reverting to source dir: $(format_path_for_display "$source_dir")"
+        echo "└─ 🏠 Back to source: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
         echo ""
         return 0
     fi
 
-    # Resolve relative path against VTARGET (or source_dir)
+    # Relative paths based on VTARGET (or source_dir)
     if [[ "$target" != /* ]]; then
         local _base="${VTARGET:-$source_dir}"
         target="$_base/$target"
     fi
 
-    # Validate path is readable
+    # Verify path is readable
     if [[ ! -d "$target" ]]; then
         echo "❌ Path does not exist or is not a directory: '$target'"
         echo "└───────────────────────────────────"
@@ -560,15 +695,15 @@ vcd() {
     return 0
 }
 
-# vls: run ls in the virtual directory (supports passing ls arguments)
+# vls: Execute ls in virtual directory (supports passing ls arguments)
 vls() {
     local target="${VTARGET:-$source_dir}"
     ls "$@" "$target"
 }
 
 # ==============================================
-# Helper: inline-refresh compile status display
-# Usage: run_compiler <compiler-command-and-args...>
+# Helper: Inline refresh display compile status
+# Usage: run_compiler <compiler command and args...>
 # ==============================================
 run_compiler() {
     local tmp_err="/tmp/_col_err_$$"
@@ -576,9 +711,9 @@ run_compiler() {
     "$@" 2>"$tmp_err"
     local rc=$?
     if [[ $rc -eq 0 ]]; then
-        printf "\r✅ Compiled successfully\n"
+        printf "\r✅ Compile successful\n"
     else
-        printf "\r❌ Compilation failed\n"
+        printf "\r❌ Compile failed\n"
         cat "$tmp_err"
     fi
     rm -f "$tmp_err"
@@ -586,22 +721,22 @@ run_compiler() {
 }
 
 # ==============================================
-# Core compile & execute logic
+# Core Compile & Execute Logic
 # ==============================================
 execute_file() {
     local full_path="$1"
-    local custom_compiler="$2"  # Optional: user-specified one-time compiler
+    local custom_compiler="$2"  # Optional: user-specified compiler for single run
     local lang=""
     local compiler=""
     local filename=$(basename "$full_path")
     
-    # 1. Check file exists
+    # 1. Check if file exists
     if [[ ! -f "$full_path" ]]; then
-        echo "❌ Error: file '$full_path' does not exist"
+        echo "❌ Error: File '$full_path' does not exist"
         return 1
     fi
     
-    # 2. Detect language from extension
+    # 2. Determine language by extension
     case "$filename" in
         *.c) lang="c" ;;
         *.cpp|*.cxx|*.cc) lang="cpp" ;;
@@ -616,29 +751,29 @@ execute_file() {
         *.kt) lang="kotlin" ;;
         *.go) lang="go" ;;
         *) 
-            echo "❌ Error: unsupported file type '$filename'"
+            echo "❌ Error: Unsupported file type '$filename'"
             return 1
             ;;
     esac
     
     # 3. Determine compiler to use
     if [[ -n "$custom_compiler" ]]; then
-        # User-specified one-time compiler takes priority
+        # Prefer user-specified compiler for single run
         compiler="$custom_compiler"
-        echo "⚠️  Using one-time compiler override: $compiler"
+        echo "⚠️  Using compiler temporarily: $compiler"
     else
-        # Use the default compiler for this language
+        # Use default compiler for this language
         compiler=${lang_default_compiler[$lang]}
     fi
     
-    # 4. Check compiler is installed
+    # 4. Check if compiler is installed
     if ! is_installed "$compiler"; then
-        echo "❌ Error: compiler '$compiler' is not installed"
+        echo "❌ Error: Compiler '$compiler' not installed"
         echo "   💡 Suggested install: $(get_install_hint "$compiler")"
         return 1
     fi
     
-    # 5. Compile and/or run
+    # 5. Execute compile and run
     echo "┌──────────────────────────────────┐"
     echo "│  ▶ $filename  [$lang · $compiler]"
     echo "└──────────────────────────────────┘"
@@ -646,14 +781,14 @@ execute_file() {
     # Save current directory
     local original_dir=$(pwd)
     
-    # Execute the appropriate compile/run command
+    # Execute corresponding compile/run command
     case "$compiler" in
-        # Python
+        # Python series
         python3|pypy|pypy3)
             "$compiler" "$full_path"
             ;;
         
-        # C
+        # C series
         gcc|clang)
             local output_file="${output_dir}/$(basename "$filename" .c)"
             run_compiler "$compiler" -o "$output_file" "$full_path"
@@ -665,7 +800,7 @@ execute_file() {
             fi
             ;;
         
-        # C++
+        # C++ series
         g++|clang++)
             local output_file="${output_dir}/$(basename "$filename" .cpp)"
             run_compiler "$compiler" -o "$output_file" "$full_path"
@@ -766,8 +901,8 @@ execute_file() {
         
         # Unknown compiler
         *)
-            echo "❌ Error: unsupported compiler '$compiler'"
-            cd "$original_dir"
+            echo "❌ Error: Unsupported compiler '$compiler'"
+            cd "$original_dir"  # Return to original directory
             return 1
             ;;
     esac
@@ -778,13 +913,27 @@ execute_file() {
 }
 
 # ==============================================
-# Display compiler availability
+# Current Status Overview (formerly checkavails)
 # ==============================================
-check_availability() {
+status() {
     echo "┌──────────────────────────────────┐"
-    echo "│      Compiler Availability       │"
+    echo "│           Status                 │"
     echo "└──────────────────────────────────┘"
-    
+    echo ""
+    echo "  📂 Source:    $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+    echo "  🛠️ Output:  $(realpath "$output_dir" 2>/dev/null || echo "$output_dir")"
+    [[ -n "$VTARGET" ]] && echo "  🔗 Virtual:  $VTARGET"
+    local script_path
+    script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local stored
+    stored=$(grep '^# \[COL_SEED\]' "$script_path" 2>/dev/null | sed 's/^# \[COL_SEED\] \?//')
+    if [[ -n "$stored" ]]; then
+        echo "  💾 Built-in Seed:  $stored"
+    else
+        echo "  💾 Built-in Seed:  (empty)"
+    fi
+    echo ""
+
     # Sort by language name for stable output
     for lang in $(echo "${!language_config[@]}" | tr ' ' '\n' | sort); do
         local rec_compiler=$(get_default_default "$lang")
@@ -796,22 +945,22 @@ check_availability() {
         
         IFS=' ' read -ra COMPILERS <<< "$candidates"
         for compiler in "${COMPILERS[@]}"; do
-            # > marks the active compiler, pure ASCII single char for reliable column alignment
+            # > marks active compiler, pure ASCII single char ensures column alignment
             if [[ "$active_compiler" == "$compiler" ]]; then
                 local ptr=">"
             else
                 local ptr=" "
             fi
             
-            # emoji placed outside printf to avoid double-width character misalignment
-            # Column structure: 2sp + ptr(1) + 1sp + emoji(2) + 1sp + compiler name(10) + 2sp + info
+            # emoji outside printf to avoid double-width char alignment issues
+            # Column structure: 2spaces + ptr(1col) + 1space + emoji(2cols) + 1space + compiler name(10cols) + 2spaces + info
             local name_col=$(printf '%-10s' "$compiler")
             if is_installed "$compiler"; then
                 local version=$(get_compiler_version "$compiler")
                 echo "  ${ptr} ✅ ${name_col}  ${version}"
             else
                 local hint=$(get_install_hint "$compiler")
-                echo "  ${ptr} ❌ ${name_col}  not installed  💡 ${hint}"
+                echo "  ${ptr} ❌ ${name_col}  Not Installed  💡 ${hint}"
             fi
         done
     done
@@ -821,14 +970,14 @@ check_availability() {
 }
 
 # ==============================================
-# Main interactive interface
+# Main Interactive Interface
 # ==============================================
 main_interface() {
     # Global array to store files listed by num command
     num_files=()
     
     while true; do
-        # Prompt: show 🔵+🔗 when VTARGET is set
+        # Prompt: use 🔵+🔗 when VTARGET is set
         if [[ -n "$VTARGET" ]]; then
             local _prompt_dir=$(format_path_for_display "$VTARGET")
             read -p "🔵[colM1_Eng]🔗 $_prompt_dir ❯ " -a input
@@ -840,15 +989,25 @@ main_interface() {
         if [[ ${#input[@]} -eq 0 ]]; then
             continue
         else
-            # Check for special commands
+            # Check special commands
             if [[ "${input[0]}" == "-h" || "${input[0]}" == "--help" ]]; then
                 show_help
                 continue
             elif [[ "${input[0]}" == "-v" || "${input[0]}" == "--version" ]]; then
                 show_version
                 continue
-            elif [[ "${input[0]}" == "checkavails" ]]; then
-                check_availability
+            elif [[ "${input[0]}" == "checkavails" || "${input[0]}" == "status" ]]; then
+                status
+                continue
+            elif [[ "${input[0]}" == "save" ]]; then
+                save_seed
+                continue
+            elif [[ "${input[0]}" == "reset" ]]; then
+                reset_seed
+                local script_dir
+                script_dir=$(dirname "$0")
+                source_dir="$script_dir"
+                output_dir="$script_dir"
                 continue
             elif [[ "${input[0]}" == "vcd" ]]; then
                 vcd "${input[1]:-}"
@@ -861,11 +1020,11 @@ main_interface() {
                 continue
             fi
             
-            # Check if input is a number (file index)
+            # Check for numeric input (file number)
             if [[ "${input[0]}" =~ ^[0-9]+$ ]]; then
                 # Check if file list exists
                 if [[ ${#num_files[@]} -eq 0 ]]; then
-                    echo "❌ Error: please run 'num' first to list files"
+                    echo "❌ Error: Please run 'num' command first to view file list"
                     echo "└───────────────────────────────────"
                     echo ""
                     continue
@@ -873,7 +1032,7 @@ main_interface() {
                 
                 local selection=${input[0]}
                 if [[ $selection -lt 1 || $selection -gt ${#num_files[@]} ]]; then
-                    echo "❌ Error: invalid file number (enter a number between 1 and ${#num_files[@]})"
+                    echo "❌ Error: Invalid file number (enter 1-${#num_files[@]})"
                     echo "└───────────────────────────────────"
                     echo ""
                     continue
@@ -881,7 +1040,7 @@ main_interface() {
                 
                 local selected_file="${num_files[$((selection-1))]}"
                 local compiler="${input[1]}"  # Optional compiler argument
-                echo "📁 Running: $(basename "$selected_file")"
+                echo "📁 Running file: $(basename "$selected_file")"
                 execute_file "$selected_file" "$compiler"
                 echo "└───────────────────────────────────"
                 echo ""
@@ -892,14 +1051,14 @@ main_interface() {
             local filename="${input[0]}"
             local compiler="${input[1]}"
             
-            # Pre-validate: must have a supported extension, otherwise error immediately without find
+            # Pre-validation: must be supported file extension, error immediately if not, skip find
             case "$filename" in
                 *.c|*.cpp|*.cxx|*.cc|*.java|*.py|*.sh|*.js|*.php|*.m|*.f|*.f90|*.f95|*.f03|*.f08|*.rs|*.kt|*.go)
                     : # Valid extension, continue
                     ;;
                 *)
                     echo "❌ Unknown command or unsupported file type: '$filename'"
-                    echo "   💡 Type '--help' for help, or 'num' to list source files"
+                    echo "   💡 Input '--help' for help, 'num' to list source files"
                     echo "└───────────────────────────────────"
                     echo ""
                     continue
@@ -913,7 +1072,7 @@ main_interface() {
             if [[ ${#found_files[@]} -eq 0 ]]; then
                 # Show full path in error message
                 local source_full_path=$(realpath "$_search_dir" 2>/dev/null || echo "$_search_dir")
-                echo "❌ Error: file '$filename' not found in '${source_full_path}' or its subdirectories"
+                echo "❌ Error: File '$filename' not found in '${source_full_path}' and its subdirectories"
                 echo "└───────────────────────────────────"
                 echo ""
                 continue
@@ -923,11 +1082,11 @@ main_interface() {
                 for i in "${!found_files[@]}"; do
                     echo "   $((i+1)). ${found_files[$i]}"
                 done
-                read -p "🔢 Select file number [number (compiler)]: " -a sel_input
+                read -p "🔢 Please select file number [number (compiler)]: " -a sel_input
                 local selection="${sel_input[0]}"
                 local override_compiler="${sel_input[1]}"
                 if [[ $selection -lt 1 || $selection -gt ${#found_files[@]} ]]; then
-                    echo "❌ Error: invalid selection"
+                    echo "❌ Error: Invalid number"
                     echo "└──────────────────────────────────┘"
                     echo ""
                     continue
@@ -946,26 +1105,59 @@ main_interface() {
 }
 
 # ==============================================
-# Main entry point
+# Main Function
 # ==============================================
 main() {
-    # Load config first to prevent ⚠️ messages mixing with banner
+    # Parse command line seed arguments first
     load_seed_from_args "$@"
+
+    # When no command line args, overlay built-in seed
+    if [[ $# -eq 0 ]]; then
+        load_stored_seed
+    fi
+
     initialize
-    
+
     echo ""
     show_banner
     echo "👋 Welcome to colM1_Eng!"
-    echo "   • Type '--help' for help"
-    echo "   • Type 'num' to list source files"
-    echo "   • Type 'checkavails' to see compiler status"
-    echo "📁 Source dir: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+    echo "   • Input '--help' for help"
+    echo "   • Input 'num' to view source file list"
+    echo "   • Input 'status' to view compiler status"
+    echo "📂 Source: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+    echo "🛠️ Output: $(realpath "$output_dir" 2>/dev/null || echo "$output_dir")"
+    # Check if current path matches built-in seed
+    local _script_path
+    _script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local _stored_raw
+    _stored_raw=$(grep '^# \[COL_SEED\]' "$_script_path" 2>/dev/null | sed 's/^# \[COL_SEED\] \?//')
+    if [[ -n "$_stored_raw" ]]; then
+        # Parse f- and t- from seed
+        local _seed_src="" _seed_out=""
+        for _tok in $_stored_raw; do
+            [[ "$_tok" == f-* ]] && _seed_src="${_tok#f-}"
+            [[ "$_tok" == t-* ]] && _seed_out="${_tok#t-}"
+        done
+        local _cur_src _cur_out _s_src _s_out
+        _cur_src=$(realpath "$source_dir" 2>/dev/null || echo "$source_dir")
+        _cur_out=$(realpath "$output_dir" 2>/dev/null || echo "$output_dir")
+        _s_src=$(realpath "$_seed_src" 2>/dev/null || echo "$_seed_src")
+        _s_out=$(realpath "$_seed_out" 2>/dev/null || echo "$_seed_out")
+        if [[ "$_cur_src" != "$_s_src" || "$_cur_out" != "$_s_out" ]]; then
+            echo "⚡ Temporary execution  Seed record: $_stored_raw"
+        fi
+    fi
     echo "└───────────────────────────────────"
     echo ""
-    
+
+    # When no command line args, enter seed input REPL
+    if [[ $# -eq 0 ]]; then
+        seed_startup_repl
+    fi
+
     # Enter main interface
     main_interface
 }
 
-# Launch
+# Start program
 main "$@"

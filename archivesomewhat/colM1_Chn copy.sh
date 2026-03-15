@@ -6,13 +6,20 @@
 VERSION="M1.0.Chn"
 
 # ==============================================
+# 统一 Banner（版本框）
+# ==============================================
+show_banner() {
+    echo "┌──────────────────────────────────┐"
+    echo "│          col $VERSION            │"
+    echo "│      多语言编译运行工具          │"
+    echo "└──────────────────────────────────┘"
+}
+
+# ==============================================
 # 显示帮助信息
 # ==============================================
 show_help() {
-    echo "┌──────────────────────────────────┐"
-    echo "│      colM1_Chn $VERSION        │"
-    echo "│      多语言编译运行工具          │"
-    echo "└──────────────────────────────────┘"
+    show_banner
     echo ""
     echo "📋 支持语言:"
     echo "   Java, C, C++, Python, Shell, JavaScript,"
@@ -34,8 +41,12 @@ show_help() {
     echo "🎮 使用方法:"
     echo "   <文件名>           运行指定文件"
     echo "   <文件名> <编译器>  单次指定编译器运行"
-    echo "   vls                列出当前目录源文件并编号"
+    echo "   num                列出当前目录源文件并编号"
     echo "   <编号>             运行编号对应的文件"
+    echo "   vcd <路径>        设置虚拟目标目录（可指向~/之外）"
+    echo "   vcd -              清除虚拟目录"
+    echo "   vcd               查看当前虚拟目录"
+    echo "   vls [参数]        在虚拟目录中运行 ls"
     echo "   checkavails        显示编译器可用性"
     echo "   -h, --help         显示帮助信息"
     echo "   -v, --version      显示版本信息"
@@ -44,7 +55,7 @@ show_help() {
     echo "   ./colM1_Chn.sh f-./sources t-./builds op-clang-c,g++-cpp"
     echo "   test.c"
     echo "   test.c gcc"
-    echo "   vls"
+    echo "   num"
     echo "   1"
     echo "   checkavails"
     echo "   Ctrl+C (退出并显示配置种子)"
@@ -65,6 +76,7 @@ show_help() {
             printf "   ❌ %-12s → %-8s  未安装   💡 %s\n" "$lang" "$compiler" "$hint"
         fi
     done
+    echo "└───────────────────────────────────"
     echo ""
 }
 
@@ -72,10 +84,8 @@ show_help() {
 # 显示版本信息
 # ==============================================
 show_version() {
-    echo "┌──────────────────────────────────┐"
-    echo "│    colM1_Chn 多语言编译工具      │"
-    echo "│         v$VERSION              │"
-    echo "└──────────────────────────────────┘"
+    show_banner
+    echo ""
 }
 
 # ==============================================
@@ -139,7 +149,7 @@ show_exit_seed() {
     seed_command+=" op-$(IFS=,; echo "${current_ops[*]}")"
     
     echo "  $seed_command"
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
 }
 
 # ==============================================
@@ -201,6 +211,7 @@ source_dir=""                     # 源文件路径
 output_dir=""                     # 编译产物路径
 execute=true                      # 编译后是否执行
 delete_after=true                 # 运行后是否删除产物
+VTARGET=""                        # v系列虚拟目标目录（可在~/之外）
 
 # ==============================================
 # 工具函数：解析语言配置
@@ -327,13 +338,8 @@ apply_compiler_language_pairs() {
     local op_list=(${ops//,/ })  # 用逗号分隔多个映射
     
     for op in "${op_list[@]}"; do
-        # Check for path configuration parameters
-        if [[ $op == f-* ]]; then
-            source_dir="${op#f-}"
-        elif [[ $op == t-* ]]; then
-            output_dir="${op#t-}"
         # Handle compiler-language mappings
-        elif [[ $op == *-* ]]; then
+        if [[ $op == *-* ]]; then
             # 解析编译器-语言对
             local compiler=$(echo "$op" | cut -d'-' -f1)
             local lang=$(echo "$op" | cut -d'-' -f2)
@@ -413,48 +419,152 @@ initialize() {
 }
 
 # ==============================================
-# 列出当前目录下的源文件并编号
+# 列出源文件并编号（树形前序：'./'优先，其余按路径字典序 = DFS pre-order）
 # ==============================================
-vls() {
+num() {
     echo "┌──────────────────────────────────┐"
     echo "│      当前目录源文件列表          │"
     echo "└──────────────────────────────────┘"
-    
-    # 存储找到的文件路径
-    local found_files=()
-    
-    # 定义支持的文件扩展名
+
+    local abs_source
+    local _num_base="${VTARGET:-$source_dir}"
+    abs_source=$(realpath "$_num_base" 2>/dev/null || echo "$_num_base")
+
+    # 构建 find 扩展名过滤参数
     local extensions=("*.c" "*.cpp" "*.cxx" "*.cc" "*.java" "*.py" "*.sh" "*.js" "*.php" "*.m" "*.f" "*.f90" "*.f95" "*.f03" "*.f08" "*.rs" "*.kt" "*.go")
-    
-    # 在源目录及其子目录中查找文件
+    local find_args=()
+    local first=true
     for ext in "${extensions[@]}"; do
-        while IFS= read -r -d '' file; do
-            found_files+=("$file")
-        done < <(find "$source_dir" -name "$ext" -type f -print0 2>/dev/null)
+        if $first; then
+            find_args+=(-name "$ext"); first=false
+        else
+            find_args+=(-o -name "$ext")
+        fi
     done
-    
-    # 如果没有找到文件
-    if [[ ${#found_files[@]} -eq 0 ]]; then
+
+    # 一次 find 收集全部文件
+    local all_files=()
+    while IFS= read -r file; do
+        [[ -n "$file" ]] && all_files+=("$file")
+    done < <(find "$abs_source" -maxdepth 5 -mindepth 1 -type f \( "${find_args[@]}" \) 2>/dev/null)
+
+    if [[ ${#all_files[@]} -eq 0 ]]; then
         echo "❌ 当前目录及子目录中未找到支持的源文件"
-        echo "└──────────────────────────────────┘"
+        echo "└───────────────────────────────────"
+        echo ""
         return 0
     fi
-    
-    # 显示文件列表并编号
-    echo "找到 ${#found_files[@]} 个源文件:"
-    echo ""
-    for i in "${!found_files[@]}"; do
-        local filename=$(basename "${found_files[$i]}")
-        local filepath="${found_files[$i]}"
-        printf "  %2d. %s\n" $((i+1)) "$filename"
+
+    # 按目录分桶：_dir_files[dir] = 换行分隔的文件绝对路径列表
+    declare -A _dir_files
+    for file in "${all_files[@]}"; do
+        local rel="${file#$abs_source/}"
+        local dir
+        dir=$(dirname "$rel")
+        if [[ -z "${_dir_files[$dir]+x}" ]]; then
+            _dir_files[$dir]="$file"
+        else
+            _dir_files[$dir]+=$'\n'"$file"
+        fi
     done
+
+    # DFS 树形排序：'.' 优先，其余路径字典序（父目录天然在子目录之前）
+    local sorted_dirs=()
+    while IFS= read -r dir; do
+        [[ -n "$dir" ]] && sorted_dirs+=("$dir")
+    done < <(
+        {
+            [[ -v "_dir_files[.]" ]] && echo "."
+            for dir in "${!_dir_files[@]}"; do
+                [[ "$dir" != "." ]] && echo "$dir"
+            done | sort
+        }
+    )
+
+    echo "找到 ${#all_files[@]} 个源文件:"
+
+    local counter=1
+    num_files=()
+
+    for dir in "${sorted_dirs[@]}"; do
+        echo ""
+        if [[ "$dir" == "." ]]; then
+            echo "  ./"
+        else
+            echo "  $dir/"
+        fi
+
+        # 目录内文件按文件名排序后输出
+        while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            local filename
+            filename=$(basename "$file")
+            printf "    %2d. %s\n" "$counter" "$filename"
+            num_files+=("$file")
+            ((counter++))
+        done < <(echo "${_dir_files[$dir]}" | sort)
+    done
+
     echo ""
     echo "💡 输入文件编号可直接运行对应文件"
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
     echo ""
-    
-    # 将文件列表存储在全局数组中供后续使用
-    vls_files=("${found_files[@]}")
+}
+
+# ==============================================
+# v系列：虚拟目录管理（权限跨越层）
+# ==============================================
+
+# vcd：设置 / 查看 / 清除虚拟目标目录
+vcd() {
+    local target="${1:-}"
+
+    if [[ -z "$target" ]]; then
+        # 无参数：显示当前状态
+        echo "┌──────────────────────────────────┐"
+        if [[ -z "$VTARGET" ]]; then
+            echo "│  📍 未设置虚拟目录"
+            echo "│     当前使用源目录: $(format_path_for_display "$source_dir")"
+        else
+            echo "│  🔗 虚拟目录: $VTARGET"
+        fi
+        echo "└───────────────────────────────────"
+        echo ""
+        return 0
+    fi
+
+    if [[ "$target" == "-" ]]; then
+        # 清除虚拟目录
+        VTARGET=""
+        echo "└─ 已清除虚拟目录，恢复使用源目录: $(format_path_for_display "$source_dir")"
+        echo ""
+        return 0
+    fi
+
+    # 相对路径基于 VTARGET（或 source_dir）拼接
+    if [[ "$target" != /* ]]; then
+        local _base="${VTARGET:-$source_dir}"
+        target="$_base/$target"
+    fi
+
+    # 验证路径可读
+    if [[ ! -d "$target" ]]; then
+        echo "❌ 路径不存在或非目录: '$target'"
+        echo "└───────────────────────────────────"
+        echo ""
+        return 1
+    fi
+
+    VTARGET=$(realpath "$target" 2>/dev/null || echo "$target")
+    echo "└─ 🔗 虚拟目录已设置: $VTARGET"
+    echo ""
+    return 0
+}
+
+# vls：在虚拟目录中执行 ls（支持传递 ls 参数）
+vls() {
+    local target="${VTARGET:-$source_dir}"
+    ls "$@" "$target"
 }
 
 # ==============================================
@@ -707,20 +817,26 @@ check_availability() {
         done
     done
     echo ""
-    echo "└──────────────────────────────────┘"
+    echo "└───────────────────────────────────"
+    echo ""
 }
 
 # ==============================================
 # 主交互界面
 # ==============================================
 main_interface() {
-    # 全局数组存储vls命令列出的文件
-    vls_files=()
+    # 全局数组存储num命令列出的文件
+    num_files=()
     
     while true; do
-        # Get source directory for display (last 2 levels)
-        local source_dir_display=$(format_path_for_display "$source_dir")
-        read -p "🟢[colM1_Chn] $source_dir_display ❯ " -a input
+        # 提示符：VTARGET已设置时用🔵+🔗标识
+        if [[ -n "$VTARGET" ]]; then
+            local _prompt_dir=$(format_path_for_display "$VTARGET")
+            read -p "🔵[colM1_Chn]🔗 $_prompt_dir ❯ " -a input
+        else
+            local _prompt_dir=$(format_path_for_display "$source_dir")
+            read -p "🟢[colM1_Chn] $_prompt_dir ❯ " -a input
+        fi
         
         if [[ ${#input[@]} -eq 0 ]]; then
             continue
@@ -735,29 +851,40 @@ main_interface() {
             elif [[ "${input[0]}" == "checkavails" ]]; then
                 check_availability
                 continue
+            elif [[ "${input[0]}" == "vcd" ]]; then
+                vcd "${input[1]:-}"
+                continue
             elif [[ "${input[0]}" == "vls" ]]; then
-                vls
+                vls "${input[@]:1}"
+                continue
+            elif [[ "${input[0]}" == "num" ]]; then
+                num
                 continue
             fi
             
             # 检查是否为数字输入（文件编号）
             if [[ "${input[0]}" =~ ^[0-9]+$ ]]; then
                 # 检查是否有文件列表
-                if [[ ${#vls_files[@]} -eq 0 ]]; then
-                    echo "❌ 错误: 请先运行 'vls' 命令查看文件列表"
+                if [[ ${#num_files[@]} -eq 0 ]]; then
+                    echo "❌ 错误: 请先运行 'num' 命令查看文件列表"
+                    echo "└───────────────────────────────────"
+                    echo ""
                     continue
                 fi
                 
                 local selection=${input[0]}
-                if [[ $selection -lt 1 || $selection -gt ${#vls_files[@]} ]]; then
-                    echo "❌ 错误: 无效的文件编号 (请输入 1-${#vls_files[@]} 之间的数字)"
+                if [[ $selection -lt 1 || $selection -gt ${#num_files[@]} ]]; then
+                    echo "❌ 错误: 无效的文件编号 (请输入 1-${#num_files[@]} 之间的数字)"
+                    echo "└───────────────────────────────────"
+                    echo ""
                     continue
                 fi
                 
-                local selected_file="${vls_files[$((selection-1))]}"
+                local selected_file="${num_files[$((selection-1))]}"
                 local compiler="${input[1]}"  # 可选的编译器参数
                 echo "📁 运行文件: $(basename "$selected_file")"
                 execute_file "$selected_file" "$compiler"
+                echo "└───────────────────────────────────"
                 echo ""
                 continue
             fi
@@ -773,18 +900,23 @@ main_interface() {
                     ;;
                 *)
                     echo "❌ 未知命令或不支持的文件类型: '$filename'"
-                    echo "   💡 输入 '--help' 查看帮助，输入 'vls' 列出源文件"
+                    echo "   💡 输入 '--help' 查看帮助，输入 'num' 列出源文件"
+                    echo "└───────────────────────────────────"
+                    echo ""
                     continue
                     ;;
             esac
             
             # Recursively find file
-            local found_files=($(find_file_recursive "$filename" "$source_dir"))
+            local _search_dir="${VTARGET:-$source_dir}"
+            local found_files=($(find_file_recursive "$filename" "$_search_dir"))
             
             if [[ ${#found_files[@]} -eq 0 ]]; then
                 # Show full path in error message
-                local source_full_path=$(realpath "$source_dir" 2>/dev/null || echo "$source_dir")
+                local source_full_path=$(realpath "$_search_dir" 2>/dev/null || echo "$_search_dir")
                 echo "❌ 错误: 在 '${source_full_path}' 及其子目录中未找到文件 '$filename'"
+                echo "└───────────────────────────────────"
+                echo ""
                 continue
             elif [[ ${#found_files[@]} -gt 1 ]]; then
                 echo ""
@@ -792,16 +924,22 @@ main_interface() {
                 for i in "${!found_files[@]}"; do
                     echo "   $((i+1)). ${found_files[$i]}"
                 done
-                read -p "🔢 请选择要执行的文件序号: " selection
+                read -p "🔢 请选择要执行的文件序号 [编号 (编译器)]: " -a sel_input
+                local selection="${sel_input[0]}"
+                local override_compiler="${sel_input[1]}"
                 if [[ $selection -lt 1 || $selection -gt ${#found_files[@]} ]]; then
                     echo "❌ 错误: 无效的序号"
+                    echo "└──────────────────────────────────┘"
+                    echo ""
                     continue
                 fi
                 local selected_file="${found_files[$((selection-1))]}"
-                execute_file "$selected_file" "$compiler"
+                execute_file "$selected_file" "${override_compiler:-$compiler}"
+                echo "└───────────────────────────────────"
                 echo ""
             else
                 execute_file "${found_files[0]}" "$compiler"
+                echo "└───────────────────────────────────"
                 echo ""
             fi
         fi
@@ -812,24 +950,18 @@ main_interface() {
 # 主函数
 # ==============================================
 main() {
-    echo ""
-    echo "┌──────────────────────────────────┐"
-    echo "│      colM1_Chn v$VERSION       │"
-    echo "│      多语言编译运行工具          │"
-    echo "└──────────────────────────────────┘"
-    echo "👋 欢迎使用 colM1_Chn！"
-    echo "   • 输入 '--help' 获取帮助"
-    echo "   • 输入 'vls' 查看源文件列表"
-    echo "   • 输入 'checkavails' 查看编译器状态"
-    echo "└──────────────────────────────────┘"
-    
-    # 从命令行参数加载种子配置
+    # 先加载配置，避免 ⚠️ 消息混入 banner
     load_seed_from_args "$@"
-    
-    # 初始化配置
     initialize
     
+    echo ""
+    show_banner
+    echo "👋 欢迎使用 colM1_Chn！"
+    echo "   • 输入 '--help' 获取帮助"
+    echo "   • 输入 'num' 查看源文件列表"
+    echo "   • 输入 'checkavails' 查看编译器状态"
     echo "📁 源目录: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+    echo "└───────────────────────────────────"
     echo ""
     
     # 进入主界面

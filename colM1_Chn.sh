@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
+# [COL_SEED]
 
 # ==============================================
 # 脚本版本信息
@@ -47,7 +48,9 @@ show_help() {
     echo "   vcd -              清除虚拟目录"
     echo "   vcd               查看当前虚拟目录"
     echo "   vls [参数]        在虚拟目录中运行 ls"
-    echo "   checkavails        显示编译器可用性"
+    echo "   status             当前状态总览（路径+编译器可用性）"
+    echo "   save               将当前配置写入脚本内置种子"
+    echo "   reset              清空内置种子，回归默认"
     echo "   -h, --help         显示帮助信息"
     echo "   -v, --version      显示版本信息"
     echo ""
@@ -57,7 +60,9 @@ show_help() {
     echo "   test.c gcc"
     echo "   num"
     echo "   1"
-    echo "   checkavails"
+    echo "   status"
+    echo "   save"
+    echo "   reset"
     echo "   Ctrl+C (退出并显示配置种子)"
     echo ""
     echo "💡 提示: 交互模式中也可输入 --help 或 --version"
@@ -184,6 +189,137 @@ load_seed_from_args() {
             echo "⚠️  未知参数: $arg (已忽略)"
         fi
     done
+}
+
+# ==============================================
+# 种子持久化：增量应用/加载/保存/重置
+# ==============================================
+
+# 增量应用种子片段（不重置现有配置）
+apply_seed_fragment() {
+    for arg in "$@"; do
+        if [[ "$arg" == f-* ]]; then
+            source_dir="${arg#f-}"
+        elif [[ "$arg" == t-* ]]; then
+            output_dir="${arg#t-}"
+        elif [[ "$arg" == op-* ]]; then
+            op_codes="${arg#op-}"
+            apply_compiler_language_pairs "$op_codes"
+        fi
+    done
+}
+
+# 从脚本内置 # [COL_SEED] 行加载配置
+load_stored_seed() {
+    local script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local stored
+    stored=$(grep '^# \[COL_SEED\]' "$script_path" 2>/dev/null | sed 's/^# \[COL_SEED\] \?//')
+    if [[ -n "$stored" ]]; then
+        apply_seed_fragment $stored
+        return 0
+    fi
+    return 1
+}
+
+# 将当前配置写入脚本内置种子
+save_seed() {
+    local script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local seed_str="f-${source_dir} t-${output_dir}"
+    # 只包含非默认的编译器映射
+    local op_parts=()
+    for lang in "${!lang_default_compiler[@]}"; do
+        local compiler="${lang_default_compiler[$lang]}"
+        local default_compiler
+        default_compiler=$(get_default_default "$lang")
+        if [[ "$compiler" != "$default_compiler" ]]; then
+            op_parts+=("${compiler}-${lang}")
+        fi
+    done
+    if [[ ${#op_parts[@]} -gt 0 ]]; then
+        seed_str+=" op-$(IFS=,; echo "${op_parts[*]}")"
+    fi
+    sed -i "s|^# \[COL_SEED\].*|# [COL_SEED] ${seed_str}|" "$script_path"
+    echo "   └─ 💾 已保存种子: $seed_str"
+    echo ""
+}
+
+# 清空脚本内置种子，回归默认
+reset_seed() {
+    local script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    sed -i "s|^# \[COL_SEED\].*|# [COL_SEED]|" "$script_path"
+    echo "   └─ 🔄 种子已清空"
+    echo ""
+}
+
+# ==============================================
+# 启动种子输入 mini-REPL
+# ==============================================
+seed_startup_repl() {
+    local script_path
+    script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local stored
+    stored=$(grep '^# \[COL_SEED\]' "$script_path" 2>/dev/null | sed 's/^# \[COL_SEED\] \?//')
+
+    echo "┌───────────────────────────────────"
+    echo "│  ⚙️ 种子配置  (两次回车跳过进入)"
+    if [[ -n "$stored" ]]; then
+        echo "│  💾 上次记录: $stored"
+    else
+        echo "│  💾 上次记录: (空)"
+    fi
+    echo "│  📝 格式: f-<路径>  t-<路径>  op-<编译器>-<语言>  "
+    echo "│           [加 save 则保存种子]  [加 reset 则重置种子为默认]"
+    echo "└───────────────────────────────────"
+    echo ""
+
+    local empty_count=0
+    while true; do
+        read -rp "  [种子] ❱ " seed_input
+
+        if [[ -z "$seed_input" ]]; then
+            (( empty_count++ ))
+            if [[ $empty_count -ge 2 ]]; then
+                break
+            fi
+            echo "      (再按回车进入)"
+            continue
+        fi
+
+        empty_count=0
+
+        # reset
+        if [[ "$seed_input" == "reset" ]]; then
+            reset_seed
+            local script_dir
+            script_dir=$(dirname "$0")
+            source_dir="$script_dir"
+            output_dir="$script_dir"
+            continue
+        fi
+
+        # save 独立使用 = 保存当前全部配置
+        if [[ "$seed_input" == "save" ]]; then
+            save_seed
+            continue
+        fi
+
+        # 检查 save 后缀
+        local do_save=false
+        local seed_part="$seed_input"
+        if [[ "$seed_input" == *" save" ]]; then
+            do_save=true
+            seed_part="${seed_input% save}"
+        fi
+
+        # 增量应用种子片段
+        apply_seed_fragment $seed_part
+
+        if $do_save; then
+            save_seed
+        fi
+    done
+    echo "└───────────────────────────────────"
+    echo ""
 }
 
 # ==============================================
@@ -765,13 +901,27 @@ execute_file() {
 }
 
 # ==============================================
-# 显示可用编译器信息
+# 当前状态总览（原 checkavails）
 # ==============================================
-check_availability() {
+status() {
     echo "┌──────────────────────────────────┐"
-    echo "│      编译器可用性检查            │"
+    echo "│           当前状态               │"
     echo "└──────────────────────────────────┘"
-    
+    echo ""
+    echo "  📂 源目录:    $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
+    echo "  🛠️ 产物目录:  $(realpath "$output_dir" 2>/dev/null || echo "$output_dir")"
+    [[ -n "$VTARGET" ]] && echo "  🔗 虚拟目录:  $VTARGET"
+    local script_path
+    script_path="$(realpath "$0" 2>/dev/null || echo "$0")"
+    local stored
+    stored=$(grep '^# \[COL_SEED\]' "$script_path" 2>/dev/null | sed 's/^# \[COL_SEED\] \?//')
+    if [[ -n "$stored" ]]; then
+        echo "  💾 内置种子:  $stored"
+    else
+        echo "  💾 内置种子:  (空)"
+    fi
+    echo ""
+
     # 按语言名排序，输出稳定
     for lang in $(echo "${!language_config[@]}" | tr ' ' '\n' | sort); do
         local rec_compiler=$(get_default_default "$lang")
@@ -834,8 +984,18 @@ main_interface() {
             elif [[ "${input[0]}" == "-v" || "${input[0]}" == "--version" ]]; then
                 show_version
                 continue
-            elif [[ "${input[0]}" == "checkavails" ]]; then
-                check_availability
+            elif [[ "${input[0]}" == "checkavails" || "${input[0]}" == "status" ]]; then
+                status
+                continue
+            elif [[ "${input[0]}" == "save" ]]; then
+                save_seed
+                continue
+            elif [[ "${input[0]}" == "reset" ]]; then
+                reset_seed
+                local script_dir
+                script_dir=$(dirname "$0")
+                source_dir="$script_dir"
+                output_dir="$script_dir"
                 continue
             elif [[ "${input[0]}" == "vcd" ]]; then
                 vcd "${input[1]:-}"
@@ -936,20 +1096,31 @@ main_interface() {
 # 主函数
 # ==============================================
 main() {
-    # 先加载配置，避免 ⚠️ 消息混入 banner
+    # 先解析命令行种子参数
     load_seed_from_args "$@"
+
+    # 无命令行参数时，叠加内置种子
+    if [[ $# -eq 0 ]]; then
+        load_stored_seed
+    fi
+
     initialize
-    
+
     echo ""
     show_banner
     echo "👋 欢迎使用 colM1_Chn！"
     echo "   • 输入 '--help' 获取帮助"
     echo "   • 输入 'num' 查看源文件列表"
-    echo "   • 输入 'checkavails' 查看编译器状态"
+    echo "   • 输入 'status' 查看编译器状态"
     echo "📁 源目录: $(realpath "$source_dir" 2>/dev/null || echo "$source_dir")"
     echo "└───────────────────────────────────"
     echo ""
-    
+
+    # 无命令行参数时，进入种子输入 REPL
+    if [[ $# -eq 0 ]]; then
+        seed_startup_repl
+    fi
+
     # 进入主界面
     main_interface
 }

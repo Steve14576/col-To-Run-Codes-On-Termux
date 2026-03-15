@@ -623,7 +623,7 @@ num() {
     done < <(
         {
             [[ -v "_dir_files[.]" ]] && echo "."
-            for dir in "${_dir_files[@]}"; do
+            for dir in "${!_dir_files[@]}"; do
                 [[ "$dir" != "." ]] && echo "$dir"
             done | sort
         }
